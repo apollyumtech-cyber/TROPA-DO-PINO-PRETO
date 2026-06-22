@@ -1283,6 +1283,38 @@ vrSec:Button("Test", function() VR.test() end)
 VR._on   = function() return vrOn:Get() end
 VR._mode = function() return vrMode:Get() end
 
+ntab:Col()
+local themeSec = ntab:Section("Theme")
+local thAccent = themeSec:ColorPicker("Accent color", { M.T.accent[1], M.T.accent[2], M.T.accent[3], 255 })
+local thAccBg  = themeSec:ColorPicker("Accent BG", { M.T.accent_bg[1], M.T.accent_bg[2], M.T.accent_bg[3], 255 })
+themeSec:Button("Apply theme", function()
+    local a = thAccent:Get()
+    local b = thAccBg:Get()
+    M.T.accent    = { a[1], a[2], a[3] }
+    M.T.accent_bg = { b[1], b[2], b[3], 255 }
+    M.T.notif_info = { a[1], a[2], a[3] }
+    C.setOpt("theme_r", a[1]); C.setOpt("theme_g", a[2]); C.setOpt("theme_b", a[3])
+    C.setOpt("theme_bg_r", b[1]); C.setOpt("theme_bg_g", b[2]); C.setOpt("theme_bg_b", b[3])
+    M:Info("Theme updated")
+end)
+
+do
+    local tr = C.getOpt("theme_r")
+    local tg = C.getOpt("theme_g")
+    local tb = C.getOpt("theme_b")
+    if tr and tg and tb then
+        M.T.accent = { tr, tg, tb }
+        M.T.notif_info = { tr, tg, tb }
+        thAccent:Set({ tr, tg, tb, 255 })
+    end
+    local br = C.getOpt("theme_bg_r")
+    local bg = C.getOpt("theme_bg_g")
+    local bb = C.getOpt("theme_bg_b")
+    if br and bg and bb then
+        M.T.accent_bg = { br, bg, bb, 255 }
+        thAccBg:Set({ br, bg, bb, 255 })
+    end
+end
 
 local lastWm
 local function wmSync()
