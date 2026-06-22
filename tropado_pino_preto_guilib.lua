@@ -1,6 +1,5 @@
 local M = {}
 M.VERSION = "1.0"
-M.T = T
 
 local T = {
     x = 360, y = 200, w = 600, h = 440,
@@ -36,6 +35,8 @@ local T = {
     notif_success = { 80, 200, 120 },
     notif_error   = { 235, 90, 90 },
 }
+
+M.T = T
 
 local WH = { check = 28, button = 36, slider = 36, combo = 52, multicombo = 52, input = 52, color = 28 }
 local function wheight(wd)
