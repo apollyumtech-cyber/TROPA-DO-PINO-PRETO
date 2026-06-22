@@ -1807,4 +1807,4 @@ M:OnFrame(function()
     end
 end)
 
-M:Build({ w = 720, h = 500 })
+M:Build({ w = 750, h = 520 })

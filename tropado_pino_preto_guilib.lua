@@ -548,7 +548,7 @@ function Section:Custom(height, fn)
 end
 
 function Section:height()
-    local h = 42 + 10
+    local h = 36 + 8
     for _, wd in ipairs(self.ws) do h = h + wheight(wd) end
     return h
 end
@@ -559,15 +559,16 @@ function Section:render(x, y, w)
         local fh = (clipBottom - 12) - y
         if fh > h then h = fh end
     end
-    rbox(x, y, w, h, 3, T.section, T.border)
+    -- No border box, just subtle background
+    rect(x, y, w, h, T.section)
 
-    rfill(x + 14, y + 12, 3, 14, 1, T.accent)
-    text(x + 23, y + 12, T.texthi, self.title, FONT_B)
-    rect(x + 14, y + 33, w - 28, 1, T.divider)
+    -- Section title without accent bar
+    text(x + 10, y + 10, T.texthi, self.title, FONT_B)
+    rect(x + 10, y + 28, w - 20, 1, T.divider)
 
-    local iy = y + 44
-    local ix = x + 14
-    local iw = w - 28
+    local iy = y + 36
+    local ix = x + 10
+    local iw = w - 20
     for _, wd in ipairs(self.ws) do
         if wd.kind == "listbox" and wd.fill then
             local labelH = (wd.label and wd.label ~= "") and 18 or 0
@@ -584,22 +585,34 @@ end
 
 function Section:_widget(wd, x, y, w)
     if wd.kind == "check" then
-        local box = 15
-        local by  = y + 1
-        local hov = hovering(x, by, w, box)
+        -- Toggle switch style
+        local sw, sh = 28, 14
+        local by = y + 2
+        local tx = x + w - sw
+        local hov = hovering(x, by, w, sh)
         wd._h  = approach(wd._h or 0, hov and 1 or 0, 16)
         wd._on = approach(wd._on or 0, wd.value and 1 or 0, 16)
-        local fill = lerpc(lerpc(T.widget, T.widgethi, wd._h), T.accent, wd._on)
-        rbox(x, by, box, box, 4, fill, lerpc(T.border, T.accent, wd._on))
-        text(x + box + 9, y + 2, lerpc(T.text, T.texthi, mmax(wd._h, wd._on)), wd.label, FONT)
-        if clicked(x, by, w, box) then wd.value = not wd.value end
+        -- Label
+        text(x, y + 2, lerpc(T.text, T.texthi, mmax(wd._h, wd._on)), wd.label, FONT)
+        -- Track
+        local trackCol = lerpc(T.widget, T.accent, wd._on)
+        rfill(tx, by + 1, sw, sh - 2, 6, trackCol)
+        -- Knob
+        local knobX = tx + 2 + (sw - sh) * wd._on
+        rfill(knobX, by, sh, sh, 7, lerpc(T.textdim, T.texthi, wd._on))
+        if clicked(x, by, w, sh) then wd.value = not wd.value end
 
     elseif wd.kind == "button" then
-        local bh  = 22
+        local bh  = 24
         local hov = hovering(x, y + 1, w, bh)
         wd._h = approach(wd._h or 0, hov and 1 or 0, 16)
-        rbox(x, y + 1, w, bh, 5, lerpc(T.widget, T.widgethi, wd._h), T.border)
-        text(x + w / 2, y + 6, lerpc(T.text, T.texthi, wd._h), wd.label, FONT, "center")
+        -- Flat button with subtle border, no rounded corners
+        rect(x, y + 1, w, bh, lerpc(T.widget, T.widgethi, wd._h))
+        rect(x, y + 1, w, 1, T.border)
+        rect(x, y + bh, w, 1, T.border)
+        rect(x, y + 1, 1, bh, T.border)
+        rect(x + w - 1, y + 1, 1, bh, T.border)
+        text(x + w / 2, y + 7, lerpc(T.text, T.texthi, wd._h), wd.label, FONT, "center")
         if clicked(x, y + 1, w, bh) then
             local ok, err = pcall(wd.cb); if not ok then print("[TROPA DO PINO PRETO] button error: " .. tostring(err)) end
         end
@@ -613,10 +626,15 @@ function Section:_widget(wd, x, y, w)
         elseif wd.dec > 0 then valstr = string.format("%." .. wd.dec .. "f", wd.value)
         else valstr = tostring(rnd(wd.value)) end
         text(x + w, y, T.texthi, valstr, FONT, "right")
-        local ty, th = y + 18, 6
+        local ty, th = y + 20, 4
         local frac = clamp((wd.value - wd.min) / (wd.max - wd.min), 0, 1)
-        rbox(x, ty, w, th, 3, lerpc(T.widget, T.widgethi, wd._h), T.border)
-        if frac > 0 then rfill(x, ty, mmax(th, w * frac), th, 3, T.accent, true, false, false, true) end
+        -- Thin track
+        rfill(x, ty, w, th, 2, T.widget)
+        -- Filled portion
+        if frac > 0 then rfill(x, ty, mmax(th, w * frac), th, 2, T.accent) end
+        -- Knob circle
+        local knobX = x + w * frac
+        rfill(knobX - 5, ty - 3, 10, 10, 5, T.accent)
         if ms.pressed and not ms.consumed and hovering(x, ty - 6, w, th + 12) then
             ms.consumed = true; M._slider = wd
         end
@@ -1472,14 +1490,15 @@ function M:_drawTabBar(win)
     if not self._pillX then self._pillX, self._pillW = relX, tgtW end
     self._pillX = approach(self._pillX, relX, 16)
     self._pillW = approach(self._pillW, tgtW, 16)
-    rfill(win.x + self._pillX + 3, win.y + 9, self._pillW - 6, T.titlebar - 18, 5, T.accent_bg)
+    -- Underline instead of pill background
+    rfill(win.x + self._pillX + 6, win.y + T.titlebar - 3, self._pillW - 12, 2, 1, T.accent)
 
     for i, t in ipairs(self._tabs) do
         local p = pos[i]
         local active = (i == self._active)
         local hov = hovering(p.x, win.y, p.w, T.titlebar)
         t._h = approach(t._h or 0, (active or hov) and 1 or 0, 16)
-        text(p.x + p.w / 2, win.y + 16, lerpc(T.textdim, T.texthi, t._h), t.name, FONT, "center")
+        text(p.x + p.w / 2, win.y + 13, lerpc(T.textdim, T.texthi, t._h), t.name, FONT, "center")
     end
 end
 
