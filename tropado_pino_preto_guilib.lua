@@ -4,8 +4,8 @@ M.VERSION = "1.0"
 local T = {
     x = 360, y = 200, w = 600, h = 440,
 
-    accent    = { 139, 124, 246 },
-    accent_bg = { 40, 36, 64, 255 },
+    accent    = { 220, 40, 40 },
+    accent_bg = { 50, 20, 20, 255 },
     bg        = { 20, 20, 26, 255 },
     bg2       = { 15, 15, 20, 255 },
     section   = { 25, 25, 32, 255 },
@@ -31,7 +31,7 @@ local T = {
     notif_w      = 290,
     notif_margin = 18,
     notif_life   = 3.5,
-    notif_info    = { 139, 124, 246 },
+    notif_info    = { 220, 40, 40 },
     notif_success = { 80, 200, 120 },
     notif_error   = { 235, 90, 90 },
 }
