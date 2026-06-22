@@ -1939,4 +1939,4 @@ end)
 -- Night mode sync removed (causes crash)
 M:OnFrame(function() end)
 
-M:Build({ w = 850, h = 550 })
+M:Build({ w = 950, h = 600 })
