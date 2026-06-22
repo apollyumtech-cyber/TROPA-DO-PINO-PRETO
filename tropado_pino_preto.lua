@@ -1283,7 +1283,7 @@ vrSec:Button("Test", function() VR.test() end)
 VR._on   = function() return vrOn:Get() end
 VR._mode = function() return vrMode:Get() end
 
-ntab:Col()
+ntab:Row()
 local themeSec = ntab:Section("Theme")
 local thAccent = themeSec:ColorPicker("Accent color", { M.T.accent[1], M.T.accent[2], M.T.accent[3], 255 })
 local thAccBg  = themeSec:ColorPicker("Accent BG", { M.T.accent_bg[1], M.T.accent_bg[2], M.T.accent_bg[3], 255 })
