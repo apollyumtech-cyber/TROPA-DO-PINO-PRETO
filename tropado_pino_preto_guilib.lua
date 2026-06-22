@@ -2,38 +2,38 @@ local M = {}
 M.VERSION = "1.0"
 
 local T = {
-    x = 360, y = 200, w = 600, h = 440,
+    x = 340, y = 180, w = 640, h = 460,
 
     accent    = { 220, 40, 40 },
     accent_bg = { 50, 20, 20, 255 },
-    bg        = { 20, 20, 26, 255 },
-    bg2       = { 15, 15, 20, 255 },
-    section   = { 25, 25, 32, 255 },
-    border    = { 44, 44, 56, 255 },
-    divider   = { 36, 36, 46, 255 },
-    text      = { 188, 188, 198, 255 },
-    textdim   = { 112, 112, 126, 255 },
-    texthi    = { 240, 240, 245, 255 },
-    widget    = { 33, 33, 42, 255 },
-    widgethi  = { 45, 45, 57, 255 },
+    bg        = { 14, 14, 18, 255 },
+    bg2       = { 10, 10, 14, 255 },
+    section   = { 20, 20, 25, 255 },
+    border    = { 38, 38, 48, 255 },
+    divider   = { 30, 30, 38, 255 },
+    text      = { 180, 180, 192, 255 },
+    textdim   = { 95, 95, 110, 255 },
+    texthi    = { 245, 245, 250, 255 },
+    widget    = { 28, 28, 35, 255 },
+    widgethi  = { 40, 40, 50, 255 },
 
     title     = "TROPA DO PINO PRETO",
     title_tld = "",
-    titlebar  = 44,
-    pad       = 14,
-    sec_gap   = 12,
+    titlebar  = 38,
+    pad       = 12,
+    sec_gap   = 10,
 
-    font      = { "Oxanium", "Space Grotesk", "Varela Round", "Tahoma", "Verdana" },
-    font_logo = { "Space Grotesk", "Oxanium", "Tahoma" },
-    font_size = 14,
+    font      = { "Tahoma", "Verdana", "Segoe UI", "Arial" },
+    font_logo = { "Tahoma", "Verdana", "Arial" },
+    font_size = 13,
 
     notif_pos    = "bottom-right",
-    notif_w      = 290,
-    notif_margin = 18,
-    notif_life   = 3.5,
+    notif_w      = 280,
+    notif_margin = 16,
+    notif_life   = 3.0,
     notif_info    = { 220, 40, 40 },
-    notif_success = { 80, 200, 120 },
-    notif_error   = { 235, 90, 90 },
+    notif_success = { 60, 185, 100 },
+    notif_error   = { 220, 60, 60 },
 }
 
 M.T = T
@@ -83,11 +83,7 @@ local function lerpc(a, b, t)
 end
 
 local ffi = ffi
-local FONT_URLS = {
-    { file = "TROPA DO PINO PRETO_Oxanium.ttf",      url = "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/oxanium/Oxanium%5Bwght%5D.ttf" },
-    { file = "TROPA DO PINO PRETO_Orbitron.ttf",     url = "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/orbitron/Orbitron%5Bwght%5D.ttf" },
-    { file = "TROPA DO PINO PRETO_SpaceGrotesk.ttf", url = "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/spacegrotesk/SpaceGrotesk%5Bwght%5D.ttf" },
-}
+local FONT_URLS = {}
 
 local FONT, FONT_B, FONT_LOGO
 local function initFonts()
@@ -563,7 +559,7 @@ function Section:render(x, y, w)
         local fh = (clipBottom - 12) - y
         if fh > h then h = fh end
     end
-    rbox(x, y, w, h, 6, T.section, T.border)
+    rbox(x, y, w, h, 3, T.section, T.border)
 
     rfill(x + 14, y + 12, 3, 14, 1, T.accent)
     text(x + 23, y + 12, T.texthi, self.title, FONT_B)
@@ -1707,7 +1703,7 @@ function M:_frame()
     local oy = (1 - ease) * 14
     local win = { x = real.x, y = real.y - oy, w = real.w, h = real.h }
 
-    rbox(win.x, win.y, win.w, win.h, 7, T.bg, T.border)
+    rbox(win.x, win.y, win.w, win.h, 4, T.bg, T.border)
     rfill(win.x + 1, win.y + T.titlebar, win.w - 2, win.h - T.titlebar - 1, 6, T.bg2, false, false, true, true)
 
     self:_tabInput(win)
@@ -1735,8 +1731,8 @@ function M:_frame()
         ms.wheel = 0
     end
 
-    rfill(win.x + 1, win.y + 1, win.w - 2, T.titlebar - 1, 6, T.bg, true, true, false, false)
-    rfill(win.x, win.y, win.w, 2, 7, T.accent, true, true, false, false)
+    rfill(win.x + 1, win.y + 1, win.w - 2, T.titlebar - 1, 4, T.bg, true, true, false, false)
+    rfill(win.x, win.y, win.w, 3, 4, T.accent, true, true, false, false)
     rect(win.x + 1, win.y + T.titlebar, win.w - 2, 1, T.border)
     self:_drawTabBar(win)
 
@@ -1769,8 +1765,8 @@ end
 function M:_initScreen()
     local win = self._win
     ALPHA = smooth(self._t)
-    rbox(win.x, win.y, win.w, win.h, 7, T.bg, T.border)
-    rfill(win.x, win.y, win.w, 2, 7, T.accent, true, true, false, false)
+    rbox(win.x, win.y, win.w, win.h, 4, T.bg, T.border)
+    rfill(win.x, win.y, win.w, 3, 4, T.accent, true, true, false, false)
     local dots = string.rep(".", floor(now() * 2) % 4)
     text(win.x + win.w / 2, win.y + win.h / 2 - 12, T.texthi, "Initialization in progress" .. dots, FONT_B, "center")
     text(win.x + win.w / 2, win.y + win.h / 2 + 12, T.textdim, "fetching fonts, please wait", FONT, "center")

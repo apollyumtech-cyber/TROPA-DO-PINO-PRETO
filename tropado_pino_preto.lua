@@ -1626,4 +1626,185 @@ do
     end
 end
 
+-- ============================================
+-- EXTRA FEATURES
+-- ============================================
+
+-- Session Stats
+local STATS = { kills = 0, deaths = 0, hits = 0, shots = 0, headshots = 0, dmg = 0 }
+
+pcall(function()
+    pcall(function() client.AllowListener("player_death") end)
+    pcall(function() client.AllowListener("round_start") end)
+    callbacks.Register("FireGameEvent", "TROPA DO PINO PRETO_Stats", function(ev)
+        local name
+        pcall(function() name = ev:GetName() end)
+        if name == "player_death" then
+            local attacker, victim
+            pcall(function() attacker = ev:GetInt("attacker") end)
+            pcall(function() victim = ev:GetInt("userid") end)
+            local lctrl, elist = nil, nil
+            pcall(function()
+                local base = mem.GetModuleBase("client.dll")
+                lctrl = tonumber(ffi.cast("uint64_t*", base + C.offsets.dwLocalPlayerController)[0])
+                elist = tonumber(ffi.cast("uint64_t*", base + C.offsets.dwEntityList)[0])
+            end)
+            if lctrl and elist then
+                local function slotEnt(idx)
+                    if not idx or idx < 0 then return nil end
+                    local chunk = tonumber(ffi.cast("uint64_t*", elist + 8 * bit.rshift(idx + 1, 9) + 16)[0])
+                    if not chunk or chunk < 0x10000 then return nil end
+                    return tonumber(ffi.cast("uint64_t*", chunk + 112 * bit.band(idx + 1, 0x1FF))[0])
+                end
+                local meAttack = slotEnt(attacker or -1) == lctrl
+                local meVictim = slotEnt(victim or -1) == lctrl
+                if meAttack and not meVictim then
+                    STATS.kills = STATS.kills + 1
+                    local hs = 0
+                    pcall(function() hs = ev:GetInt("headshot") end)
+                    if hs == 1 then STATS.headshots = STATS.headshots + 1 end
+                end
+                if meVictim then STATS.deaths = STATS.deaths + 1 end
+            end
+        end
+    end)
+end)
+
+-- Bomb Timer
+local BOMB = { planted = false, time = 0, site = "", maxTime = 40 }
+pcall(function()
+    pcall(function() client.AllowListener("bomb_planted") end)
+    pcall(function() client.AllowListener("bomb_defused") end)
+    pcall(function() client.AllowListener("bomb_exploded") end)
+    pcall(function() client.AllowListener("round_start") end)
+    callbacks.Register("FireGameEvent", "TROPA DO PINO PRETO_Bomb", function(ev)
+        local name
+        pcall(function() name = ev:GetName() end)
+        if name == "bomb_planted" then
+            BOMB.planted = true
+            BOMB.time = globals.RealTime and globals.RealTime() or os.clock()
+            pcall(function()
+                local site = ev:GetInt("site")
+                BOMB.site = site == 0 and "A" or "B"
+            end)
+        elseif name == "bomb_defused" or name == "bomb_exploded" or name == "round_start" then
+            BOMB.planted = false
+        end
+    end)
+end)
+
+-- Night Mode
+local nightMode = false
+local nightVars = {
+    { "r_fullbright", 0 },
+}
+local function applyNight(on)
+    if on then
+        pcall(function() client.SetConVar("csgo_dz_sky_day_01_a", 1, true) end)
+        pcall(function() client.SetConVar("r_sky_ambient_intensity", 0.1, true) end)
+        pcall(function() client.SetConVar("fog_override", 1, true) end)
+        pcall(function() client.SetConVar("fog_enable", 0, true) end)
+    else
+        pcall(function() client.SetConVar("r_sky_ambient_intensity", 1, true) end)
+        pcall(function() client.SetConVar("fog_override", 0, true) end)
+        pcall(function() client.SetConVar("fog_enable", 1, true) end)
+    end
+end
+
+-- Misc tab additions
+local ntabMisc = ntab
+
+-- Add to OnFrame for bomb timer drawing
+M:OnFrame(function(ui)
+    -- Bomb Timer HUD
+    if BOMB.planted then
+        local now = globals.RealTime and globals.RealTime() or os.clock()
+        local elapsed = now - BOMB.time
+        local remaining = math.max(0, BOMB.maxTime - elapsed)
+        if remaining > 0 then
+            local sw, sh = 0, 0
+            pcall(function() sw, sh = draw.GetScreenSize() end)
+            if sw > 0 then
+                local bw, bh = 200, 30
+                local bx, by = (sw - bw) / 2, sh - 80
+                local frac = remaining / BOMB.maxTime
+                local col = frac > 0.3 and { 220, 40, 40, 200 } or { 255, 60, 60, 255 }
+                -- background
+                draw.Color(20, 20, 26, 180)
+                draw.FilledRect(math.floor(bx), math.floor(by), math.floor(bx + bw), math.floor(by + bh))
+                -- bar
+                draw.Color(col[1], col[2], col[3], col[4])
+                draw.FilledRect(math.floor(bx + 2), math.floor(by + 2), math.floor(bx + 2 + (bw - 4) * frac), math.floor(by + bh - 2))
+                -- text
+                draw.Color(255, 255, 255, 255)
+                draw.Text(math.floor(bx + 8), math.floor(by + 8), string.format("C4 %s - %.1fs", BOMB.site, remaining))
+            end
+        else
+            BOMB.planted = false
+        end
+    end
+
+    -- Stats overlay (small, top-left below watermark)
+    if STATS.kills > 0 or STATS.deaths > 0 then
+        local kd = STATS.deaths > 0 and string.format("%.2f", STATS.kills / STATS.deaths) or tostring(STATS.kills)
+        local hsp = STATS.kills > 0 and math.floor(STATS.headshots / STATS.kills * 100) or 0
+        local txt = string.format("K:%d D:%d KD:%s HS:%d%%", STATS.kills, STATS.deaths, kd, hsp)
+        draw.Color(255, 255, 255, 180)
+        draw.Text(14, 50, txt)
+    end
+end)
+
+-- Skin Presets
+local PRESETS = {}
+
+local function savePreset(name)
+    if not name or name == "" then return end
+    local data = {}
+    for def, c in pairs(C.getCfg and {} or {}) do
+        data[def] = c
+    end
+    -- Save current config as preset
+    PRESETS[name] = C and pcall(function()
+        local cfg = {}
+        for _, it in ipairs(C.items) do
+            local c = C.getCfg(it.def)
+            if c then cfg[it.def] = c end
+        end
+        PRESETS[name] = cfg
+    end)
+    C.setOpt("preset_" .. name, "saved")
+    M:Info("Preset '" .. name .. "' saved")
+end
+
+local function loadPreset(name)
+    if not PRESETS[name] then M:Error("Preset not found"); return end
+    for def, c in pairs(PRESETS[name]) do
+        local it = nil
+        for _, item in ipairs(C.items) do
+            if item.def == def then it = item; break end
+        end
+        if it then C.apply(it, c.paint, c.wear, c.seed) end
+    end
+    M:Info("Preset '" .. name .. "' loaded")
+end
+
+-- Misc tab - add night mode and stats reset
+ntab:Row()
+local extraSec = ntab:Section("Extras")
+local cbNight = extraSec:Checkbox("Night mode", false)
+extraSec:Button("Reset stats", function()
+    STATS.kills = 0; STATS.deaths = 0; STATS.hits = 0
+    STATS.shots = 0; STATS.headshots = 0; STATS.dmg = 0
+    M:Info("Stats reset")
+end)
+
+-- Night mode sync in OnFrame
+M:OnFrame(function()
+    local on = cbNight:Get()
+    if on ~= nightMode then
+        nightMode = on
+        applyNight(on)
+    end
+end)
+
 M:Build({ w = 720, h = 500 })
