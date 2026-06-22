@@ -1456,15 +1456,15 @@ function M:_drawWatermark()
     end
 end
 
+local SIDEBAR_W = 110
+
 local function tabLayout(tabs, win)
-    pcall(function() draw.SetFont(FONT_LOGO) end)
-    local startX = win.x + 16 + textw(T.title) + textw(T.title_tld) + 14
-    pcall(function() draw.SetFont(FONT) end)
-    local pos, tx = {}, startX
+    -- Vertical sidebar layout
+    local pos = {}
+    local ty = win.y + T.titlebar + 10
     for i, t in ipairs(tabs) do
-        local tw = textw(t.name) + 28
-        pos[i] = { x = tx, w = tw }
-        tx = tx + tw
+        pos[i] = { x = win.x, y = ty, w = SIDEBAR_W, h = 28 }
+        ty = ty + 30
     end
     return pos
 end
@@ -1472,33 +1472,36 @@ end
 function M:_tabInput(win)
     local pos = tabLayout(self._tabs, win)
     for i, p in ipairs(pos) do
-        if clicked(p.x, win.y, p.w, T.titlebar) and self._active ~= i then
+        if clicked(p.x, p.y, p.w, p.h) and self._active ~= i then
             self._active = i; M._combo = nil; self._tabT = 0
         end
     end
 end
 
 function M:_drawTabBar(win)
-    text(win.x + 16, win.y + 17, T.texthi, T.title, FONT_LOGO)
-    local logoW = textw(T.title)
-    text(win.x + 16 + logoW, win.y + 17, T.accent, T.title_tld, FONT_LOGO)
+    -- Sidebar background
+    rect(win.x, win.y, SIDEBAR_W, win.h, T.bg)
+    rect(win.x + SIDEBAR_W, win.y + T.titlebar, 1, win.h - T.titlebar, T.border)
+
+    -- Title at top of sidebar
+    text(win.x + SIDEBAR_W / 2, win.y + 12, T.accent, "TPP", FONT_B, "center")
+
     local pos = tabLayout(self._tabs, win)
 
+    -- Active indicator
     local act = pos[self._active]
-    local tgtX, tgtW = act and act.x or win.x, act and act.w or 0
-    local relX = tgtX - win.x
-    if not self._pillX then self._pillX, self._pillW = relX, tgtW end
-    self._pillX = approach(self._pillX, relX, 16)
-    self._pillW = approach(self._pillW, tgtW, 16)
-    -- Underline instead of pill background
-    rfill(win.x + self._pillX + 6, win.y + T.titlebar - 3, self._pillW - 12, 2, 1, T.accent)
+    if act then
+        self._pillY = approach(self._pillY or (act.y - win.y), act.y - win.y, 16)
+        rfill(win.x, win.y + self._pillY, 3, act.h, 1, T.accent)
+        rect(win.x + 1, win.y + self._pillY, SIDEBAR_W - 1, act.h, T.accent_bg)
+    end
 
     for i, t in ipairs(self._tabs) do
         local p = pos[i]
         local active = (i == self._active)
-        local hov = hovering(p.x, win.y, p.w, T.titlebar)
+        local hov = hovering(p.x, p.y, p.w, p.h)
         t._h = approach(t._h or 0, (active or hov) and 1 or 0, 16)
-        text(p.x + p.w / 2, win.y + 13, lerpc(T.textdim, T.texthi, t._h), t.name, FONT, "center")
+        text(win.x + SIDEBAR_W / 2, p.y + 8, lerpc(T.textdim, T.texthi, t._h), t.name, FONT, "center")
     end
 end
 
@@ -1708,12 +1711,12 @@ function M:_frame()
 
     local contentH = 0
     if tab then pcall(function() contentH = tabContentHeight(tab) end) end
-    local chrome = T.titlebar + T.pad * 2
+    local chrome = T.pad * 2
 
     if self._autoH then
         local screenH = 1080
         pcall(function() local sw; sw, screenH = draw.GetScreenSize() end)
-        local targetH = clamp(contentH + chrome, 220, (screenH or 1080) - 60)
+        local targetH = clamp(contentH + chrome + T.titlebar, 220, (screenH or 1080) - 60)
         real.h = real.h + (targetH - real.h) * clamp(DT * 14, 0, 1)
     end
 
@@ -1723,21 +1726,22 @@ function M:_frame()
     local win = { x = real.x, y = real.y - oy, w = real.w, h = real.h }
 
     rbox(win.x, win.y, win.w, win.h, 4, T.bg, T.border)
-    rfill(win.x + 1, win.y + T.titlebar, win.w - 2, win.h - T.titlebar - 1, 6, T.bg2, false, false, true, true)
+    -- Content area (right of sidebar)
+    rect(win.x + SIDEBAR_W, win.y + T.titlebar, win.w - SIDEBAR_W, win.h - T.titlebar, T.bg2)
 
     self:_tabInput(win)
     self:_drag(win)
     self:_dropdownInput()
     self:_cpInput()
 
-    local availH = win.h - chrome
+    local availH = win.h - T.titlebar - T.pad * 2
     local maxScroll = mmax(0, contentH - availH)
     self._scroll = clamp(self._scroll or 0, 0, maxScroll)
 
     local tabEase = smooth(self._tabT)
-    local cx = win.x + T.pad + (1 - tabEase) * 18
+    local cx = win.x + SIDEBAR_W + T.pad + (1 - tabEase) * 12
     local cy = win.y + T.titlebar + T.pad - self._scroll
-    local cw = win.w - T.pad * 2
+    local cw = win.w - SIDEBAR_W - T.pad * 2
     clipTop, clipBottom = win.y + T.titlebar, win.y + win.h
     if tab then
         local ok, err = pcall(function() tab:render(cx, cy, cw) end)
@@ -1745,14 +1749,18 @@ function M:_frame()
     end
     clipTop, clipBottom = nil, nil
 
-    if maxScroll > 0 and (ms.wheel or 0) ~= 0 and hovering(win.x, win.y + T.titlebar, win.w, win.h - T.titlebar) then
+    if maxScroll > 0 and (ms.wheel or 0) ~= 0 and hovering(win.x + SIDEBAR_W, win.y + T.titlebar, win.w - SIDEBAR_W, win.h - T.titlebar) then
         self._scroll = clamp(self._scroll - (ms.wheel > 0 and 36 or -36), 0, maxScroll)
         ms.wheel = 0
     end
 
+    -- Titlebar
     rfill(win.x + 1, win.y + 1, win.w - 2, T.titlebar - 1, 4, T.bg, true, true, false, false)
     rfill(win.x, win.y, win.w, 3, 4, T.accent, true, true, false, false)
     rect(win.x + 1, win.y + T.titlebar, win.w - 2, 1, T.border)
+    -- Title text in titlebar
+    text(win.x + SIDEBAR_W + 14, win.y + 13, T.texthi, T.title, FONT_B)
+
     self:_drawTabBar(win)
 
     if maxScroll > 0 then
