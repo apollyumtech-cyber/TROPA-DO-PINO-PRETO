@@ -86,6 +86,10 @@ local lastAuto     = false
 -- Forward declarations for category system
 local CATEGORIES, catFilteredMap, catCombo, weaponWd, filterByCategory, _lastCat, curCatNames
 
+-- Session Stats and Bomb Timer
+local STATS = { kills = 0, deaths = 0, hits = 0, shots = 0, headshots = 0, dmg = 0 }
+local BOMB = { planted = false, time = 0, site = "", maxTime = 40 }
+
 local function item()     return C.items[weaponLb:Get()] end
 local function paint()    return curPaints[skinLb:Get()] or 0 end
 local function settings() return sWear:Get(), floor(sSeed:Get() + 0.5) end
@@ -1032,6 +1036,52 @@ pcall(function()
     callbacks.Register("FireGameEvent", "TROPA DO PINO PRETO_Events", function(ev)
         pcall(HS.onEvent, ev)
         pcall(VR.onEvent, ev)
+        -- Bomb timer
+        pcall(function()
+            local name = ev:GetName()
+            if name == "bomb_planted" then
+                BOMB.planted = true
+                BOMB.time = globals.RealTime and globals.RealTime() or os.clock()
+                pcall(function()
+                    local site = ev:GetInt("site")
+                    BOMB.site = site == 0 and "A" or "B"
+                end)
+            elseif name == "bomb_defused" or name == "bomb_exploded" or name == "round_start" then
+                BOMB.planted = false
+            end
+        end)
+        -- Stats
+        pcall(function()
+            local name = ev:GetName()
+            if name == "player_death" then
+                local attacker, victim
+                pcall(function() attacker = ev:GetInt("attacker") end)
+                pcall(function() victim = ev:GetInt("userid") end)
+                local lctrl, elist = nil, nil
+                pcall(function()
+                    local base = mem.GetModuleBase("client.dll")
+                    lctrl = tonumber(ffi.cast("uint64_t*", base + C.offsets.dwLocalPlayerController)[0])
+                    elist = tonumber(ffi.cast("uint64_t*", base + C.offsets.dwEntityList)[0])
+                end)
+                if lctrl and elist then
+                    local function slotEnt(idx)
+                        if not idx or idx < 0 then return nil end
+                        local chunk = tonumber(ffi.cast("uint64_t*", elist + 8 * bit.rshift(idx + 1, 9) + 16)[0])
+                        if not chunk or chunk < 0x10000 then return nil end
+                        return tonumber(ffi.cast("uint64_t*", chunk + 112 * bit.band(idx + 1, 0x1FF))[0])
+                    end
+                    local meAttack = slotEnt(attacker or -1) == lctrl
+                    local meVictim = slotEnt(victim or -1) == lctrl
+                    if meAttack and not meVictim then
+                        STATS.kills = STATS.kills + 1
+                        local hs = 0
+                        pcall(function() hs = ev:GetInt("headshot") end)
+                        if hs == 1 then STATS.headshots = STATS.headshots + 1 end
+                    end
+                    if meVictim then STATS.deaths = STATS.deaths + 1 end
+                end
+            end
+        end)
     end)
 end)
 
@@ -1783,67 +1833,13 @@ end
 -- EXTRA FEATURES
 -- ============================================
 
--- Session Stats
-local STATS = { kills = 0, deaths = 0, hits = 0, shots = 0, headshots = 0, dmg = 0 }
-
+-- AllowListeners for stats/bomb
 pcall(function()
     pcall(function() client.AllowListener("player_death") end)
-    pcall(function() client.AllowListener("round_start") end)
-    callbacks.Register("FireGameEvent", "TROPA DO PINO PRETO_Stats", function(ev)
-        local name
-        pcall(function() name = ev:GetName() end)
-        if name == "player_death" then
-            local attacker, victim
-            pcall(function() attacker = ev:GetInt("attacker") end)
-            pcall(function() victim = ev:GetInt("userid") end)
-            local lctrl, elist = nil, nil
-            pcall(function()
-                local base = mem.GetModuleBase("client.dll")
-                lctrl = tonumber(ffi.cast("uint64_t*", base + C.offsets.dwLocalPlayerController)[0])
-                elist = tonumber(ffi.cast("uint64_t*", base + C.offsets.dwEntityList)[0])
-            end)
-            if lctrl and elist then
-                local function slotEnt(idx)
-                    if not idx or idx < 0 then return nil end
-                    local chunk = tonumber(ffi.cast("uint64_t*", elist + 8 * bit.rshift(idx + 1, 9) + 16)[0])
-                    if not chunk or chunk < 0x10000 then return nil end
-                    return tonumber(ffi.cast("uint64_t*", chunk + 112 * bit.band(idx + 1, 0x1FF))[0])
-                end
-                local meAttack = slotEnt(attacker or -1) == lctrl
-                local meVictim = slotEnt(victim or -1) == lctrl
-                if meAttack and not meVictim then
-                    STATS.kills = STATS.kills + 1
-                    local hs = 0
-                    pcall(function() hs = ev:GetInt("headshot") end)
-                    if hs == 1 then STATS.headshots = STATS.headshots + 1 end
-                end
-                if meVictim then STATS.deaths = STATS.deaths + 1 end
-            end
-        end
-    end)
-end)
-
--- Bomb Timer
-local BOMB = { planted = false, time = 0, site = "", maxTime = 40 }
-pcall(function()
     pcall(function() client.AllowListener("bomb_planted") end)
     pcall(function() client.AllowListener("bomb_defused") end)
     pcall(function() client.AllowListener("bomb_exploded") end)
     pcall(function() client.AllowListener("round_start") end)
-    callbacks.Register("FireGameEvent", "TROPA DO PINO PRETO_Bomb", function(ev)
-        local name
-        pcall(function() name = ev:GetName() end)
-        if name == "bomb_planted" then
-            BOMB.planted = true
-            BOMB.time = globals.RealTime and globals.RealTime() or os.clock()
-            pcall(function()
-                local site = ev:GetInt("site")
-                BOMB.site = site == 0 and "A" or "B"
-            end)
-        elseif name == "bomb_defused" or name == "bomb_exploded" or name == "round_start" then
-            BOMB.planted = false
-        end
-    end)
 end)
 
 -- Night Mode (disabled - causes crash)
@@ -1939,4 +1935,4 @@ end)
 -- Night mode sync removed (causes crash)
 M:OnFrame(function() end)
 
-M:Build({ w = 950, h = 600 })
+M:Build({ w = 950, h = 620, x = 200, y = 100 })
