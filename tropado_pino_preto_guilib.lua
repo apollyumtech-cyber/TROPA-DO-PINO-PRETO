@@ -1,5 +1,6 @@
 local M = {}
 M.VERSION = "1.0"
+M.T = T
 
 local T = {
     x = 360, y = 200, w = 600, h = 440,
