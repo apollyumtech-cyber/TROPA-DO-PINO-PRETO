@@ -1106,6 +1106,65 @@ actSec:Button("Reset All", function() C.resetAll() end)
 local cfgSec = tab:Section("Config")
 cfgSec:Button("Reset config", function() C.clearConfig() end)
 
+local presetSec = tab:Section("Presets")
+local presetCombo = presetSec:Combo("Slot", { "Preset 1", "Preset 2", "Preset 3", "Preset 4", "Preset 5" }, 1)
+presetSec:Button("Save preset", function()
+    local slot = presetCombo:Get()
+    local cfg = {}
+    for _, it in ipairs(C.items) do
+        local c = C.getCfg(it.def)
+        if c then cfg[tostring(it.def)] = c end
+    end
+    -- Save knife and glove defs
+    cfg["_knifeDef"] = C.knifeDef()
+    local serialized = {}
+    for k, v in pairs(cfg) do
+        if type(v) == "table" then
+            serialized[#serialized + 1] = k .. "=" .. (v.paint or 0) .. "," .. (v.wear or 0.0001) .. "," .. (v.seed or 0) .. "," .. (v.kind or "weapon")
+        else
+            serialized[#serialized + 1] = k .. "=" .. tostring(v)
+        end
+    end
+    C.setOpt("preset_" .. slot, table.concat(serialized, ";"))
+    M:Info("Preset " .. slot .. " saved")
+end)
+presetSec:Button("Load preset", function()
+    local slot = presetCombo:Get()
+    local data = C.getOpt("preset_" .. slot)
+    if not data or data == "" then M:Error("Preset " .. slot .. " is empty"); return end
+    -- Parse and apply
+    C.resetAll()
+    for entry in data:gmatch("[^;]+") do
+        local key, vals = entry:match("^(.-)=(.+)$")
+        if key and vals then
+            if key == "_knifeDef" then
+                -- handled via items
+            elseif key:match("^%d+$") then
+                local def = tonumber(key)
+                local paint, wear, seed, kind = vals:match("^(%d+),([%d%.]+),(%d+),(%a+)$")
+                if def and paint then
+                    paint = tonumber(paint) or 0
+                    wear = tonumber(wear) or 0.0001
+                    seed = tonumber(seed) or 0
+                    local it = nil
+                    for _, item in ipairs(C.items) do
+                        if item.def == def then it = item; break end
+                    end
+                    if it then C.apply(it, paint, wear, seed) end
+                end
+            end
+        end
+    end
+    lastSel = -1
+    lastSig = nil
+    M:Info("Preset " .. slot .. " loaded")
+end)
+presetSec:Button("Delete preset", function()
+    local slot = presetCombo:Get()
+    C.setOpt("preset_" .. slot, nil)
+    M:Info("Preset " .. slot .. " deleted")
+end)
+
 -- Override item() to use category-filtered items
 _lastCat = 1
 item = function()
