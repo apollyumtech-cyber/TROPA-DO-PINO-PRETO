@@ -1,4 +1,6 @@
 -- TROPA DO PINO PRETO - Authorized HWIDs
 -- Add one HWID per line
 -- Example: A1B2C3D4E5F6
-COLOQUE_HWIDS_AQUI
+CE690788543C0A27
+
+
