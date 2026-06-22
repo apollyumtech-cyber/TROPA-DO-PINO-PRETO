@@ -83,6 +83,9 @@ local lastSig      = nil
 local lastAutoDef  = nil
 local lastAuto     = false
 
+-- Forward declarations for category system
+local CATEGORIES, catFilteredMap, catCombo, weaponWd, filterByCategory, _lastCat, curCatNames
+
 local function item()     return C.items[weaponLb:Get()] end
 local function paint()    return curPaints[skinLb:Get()] or 0 end
 local function settings() return sWear:Get(), floor(sSeed:Get() + 0.5) end
@@ -104,9 +107,35 @@ local function autoFollow()
     local def = C.activeDef(); if not def then return end
     if not C.defToItem[def] and C.isKnife(def) and C.knifeDef() then def = C.knifeDef() end
     if def == lastAutoDef then return end
-    local idx = C.defToItem[def]; if not idx then return end
     lastAutoDef = def
-    weaponLb:Set(idx)
+    -- Find in current category filter
+    for localIdx, globalIdx in pairs(catFilteredMap or {}) do
+        if C.items[globalIdx] and C.items[globalIdx].def == def then
+            weaponLb:Set(localIdx)
+            return
+        end
+    end
+    -- If not in current category, find the right category and switch
+    local globalIdx = C.defToItem[def]; if not globalIdx then return end
+    local it = C.items[globalIdx]; if not it then return end
+    for ci, cat in ipairs(CATEGORIES) do
+        local match = false
+        if cat.filter then match = (it.kind == cat.filter)
+        elseif cat.defs then
+            for _, d in ipairs(cat.defs) do if d == def then match = true; break end end
+        end
+        if match then
+            catCombo:Set(ci)
+            _lastCat = ci
+            filterByCategory(ci)
+            weaponWd.items = curCatNames
+            weaponWd.scroll = 0
+            for li, gi in pairs(catFilteredMap) do
+                if gi == globalIdx then weaponLb:Set(li); break end
+            end
+            return
+        end
+    end
 end
 
 local function autoApply()
@@ -120,7 +149,7 @@ local function syncSkins()
     local sel = weaponLb:Get()
     if sel == lastSel then return end
     lastSel = sel
-    local it = C.items[sel]; if not it then return end
+    local it = item(); if not it then return end
     local names, paints = C.skinList(it.def)
     curPaints     = paints
     skinWd.items  = names
@@ -1008,8 +1037,56 @@ end)
 
 local tab = M:Tab("Skins")
 
+-- Category system
+CATEGORIES = {
+    { name = "Knives",       filter = "knife" },
+    { name = "Gloves",       filter = "glove" },
+    { name = "Rifles",       defs = { 7, 16, 60, 8, 10, 13, 39 } },
+    { name = "Snipers",      defs = { 9, 40, 38, 11 } },
+    { name = "Pistols",      defs = { 1, 64, 2, 3, 4, 30, 32, 36, 61, 63 } },
+    { name = "SMGs",         defs = { 17, 19, 26, 23, 33, 34, 24 } },
+    { name = "Shotguns",     defs = { 25, 27, 35, 29 } },
+    { name = "Machine Guns", defs = { 14, 28 } },
+}
+
+local catNames = {}
+for i, cat in ipairs(CATEGORIES) do catNames[i] = cat.name end
+
+local curCatItems = {}
+curCatNames = {}
+catFilteredMap = {}
+
+filterByCategory = function(catIdx)
+    local cat = CATEGORIES[catIdx]
+    if not cat then return end
+    curCatItems = {}
+    curCatNames = {}
+    catFilteredMap = {}
+    for i, it in ipairs(C.items) do
+        local match = false
+        if cat.filter then
+            match = (it.kind == cat.filter)
+        elseif cat.defs then
+            for _, d in ipairs(cat.defs) do
+                if it.def == d then match = true; break end
+            end
+        end
+        if match then
+            curCatItems[#curCatItems + 1] = it
+            curCatNames[#curCatNames + 1] = it.name
+            catFilteredMap[#curCatNames] = i
+        end
+    end
+    if #curCatNames == 0 then curCatNames = { "[ empty ]" } end
+end
+filterByCategory(1)
+
 tab:Row()
-weaponLb = tab:Section("Weapons"):Listbox("", C.names, "fill", 1)
+local catSec = tab:Section("Category")
+catCombo = catSec:Combo("", catNames, 1)
+local wpnSec = tab:Section("Weapons")
+weaponLb = wpnSec:Listbox("", curCatNames, "fill", 1)
+weaponWd = wpnSec.ws[#wpnSec.ws]
 
 tab:Col()
 local sSec = tab:Section("Skins")
@@ -1028,6 +1105,28 @@ actSec:Button("Reset All", function() C.resetAll() end)
 
 local cfgSec = tab:Section("Config")
 cfgSec:Button("Reset config", function() C.clearConfig() end)
+
+-- Override item() to use category-filtered items
+_lastCat = 1
+item = function()
+    local sel = weaponLb:Get()
+    local globalIdx = catFilteredMap[sel]
+    if globalIdx then return C.items[globalIdx] end
+    return nil
+end
+
+-- Category sync
+local function syncCategory()
+    local cat = catCombo:Get()
+    if cat ~= _lastCat then
+        _lastCat = cat
+        filterByCategory(cat)
+        weaponWd.items = curCatNames
+        weaponWd.value = 1
+        weaponWd.scroll = 0
+        lastSel = -1
+    end
+end
 
 local vtab = M:Tab("Visuals")
 
@@ -1528,6 +1627,7 @@ vrOn:Set(getBool("vr_on", false))
 do local p = tonumber(C.getOpt("vr_mode")); if p and p >= 1 and p <= 3 then vrMode:Set(p) end end
 
 M:OnFrame(function()
+    pcall(syncCategory)
     pcall(autoFollow)
     pcall(syncSkins)
     pcall(autoApply)
@@ -1693,23 +1793,9 @@ pcall(function()
     end)
 end)
 
--- Night Mode
+-- Night Mode (disabled - causes crash)
 local nightMode = false
-local nightVars = {
-    { "r_fullbright", 0 },
-}
-local function applyNight(on)
-    if on then
-        pcall(function() client.SetConVar("csgo_dz_sky_day_01_a", 1, true) end)
-        pcall(function() client.SetConVar("r_sky_ambient_intensity", 0.1, true) end)
-        pcall(function() client.SetConVar("fog_override", 1, true) end)
-        pcall(function() client.SetConVar("fog_enable", 0, true) end)
-    else
-        pcall(function() client.SetConVar("r_sky_ambient_intensity", 1, true) end)
-        pcall(function() client.SetConVar("fog_override", 0, true) end)
-        pcall(function() client.SetConVar("fog_enable", 1, true) end)
-    end
-end
+local function applyNight(on) end
 
 -- Misc tab additions
 local ntabMisc = ntab
@@ -1791,20 +1877,13 @@ end
 -- Misc tab - add night mode and stats reset
 ntab:Row()
 local extraSec = ntab:Section("Extras")
-local cbNight = extraSec:Checkbox("Night mode", false)
 extraSec:Button("Reset stats", function()
     STATS.kills = 0; STATS.deaths = 0; STATS.hits = 0
     STATS.shots = 0; STATS.headshots = 0; STATS.dmg = 0
     M:Info("Stats reset")
 end)
 
--- Night mode sync in OnFrame
-M:OnFrame(function()
-    local on = cbNight:Get()
-    if on ~= nightMode then
-        nightMode = on
-        applyNight(on)
-    end
-end)
+-- Night mode sync removed (causes crash)
+M:OnFrame(function() end)
 
 M:Build({ w = 750, h = 520 })
