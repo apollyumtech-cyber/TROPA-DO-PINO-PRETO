@@ -314,12 +314,23 @@ do
         return tostring(SND_PATHS[cmb:Get()] or "")
     end
 
+    local _sndQueue = {}
+
     local function play(path, vol)
         if path == "" then return end
         vol = (tonumber(vol) or 100) / 100
         if vol <= 0 then return end
-        pcall(function() client.SetConVar("snd_toolvolume", vol, true) end)
-        pcall(function() client.Command("play sounds\\" .. path, true) end)
+        _sndQueue[#_sndQueue + 1] = { path = path, vol = vol }
+    end
+
+    function HS.flushSounds()
+        if #_sndQueue == 0 then return end
+        for _, s in ipairs(_sndQueue) do
+            pcall(function() client.SetConVar("snd_toolvolume", s.vol, true) end)
+            pcall(function() client.Command("play sounds\\" .. s.path, true) end)
+        end
+        _sndQueue = {}
+    end
     end
 
     function HS.playHit()  play(resolve(hsCmb), hsVol:Get()) end
@@ -1526,6 +1537,7 @@ M:OnFrame(function()
     pcall(syncVm)
     pcall(HS.missTick)
     pcall(HS.sync)
+    pcall(HS.flushSounds)
     pcall(hlSync)
     pcall(wmSync)
     pcall(rgSync)
