@@ -1283,38 +1283,6 @@ vrSec:Button("Test", function() VR.test() end)
 VR._on   = function() return vrOn:Get() end
 VR._mode = function() return vrMode:Get() end
 
-ntab:Row()
-local themeSec = ntab:Section("Theme")
-local thAccent = themeSec:ColorPicker("Accent color", { M.T.accent[1], M.T.accent[2], M.T.accent[3], 255 })
-local thAccBg  = themeSec:ColorPicker("Accent BG", { M.T.accent_bg[1], M.T.accent_bg[2], M.T.accent_bg[3], 255 })
-themeSec:Button("Apply theme", function()
-    local a = thAccent:Get()
-    local b = thAccBg:Get()
-    M.T.accent    = { a[1], a[2], a[3] }
-    M.T.accent_bg = { b[1], b[2], b[3], 255 }
-    M.T.notif_info = { a[1], a[2], a[3] }
-    C.setOpt("theme_r", a[1]); C.setOpt("theme_g", a[2]); C.setOpt("theme_b", a[3])
-    C.setOpt("theme_bg_r", b[1]); C.setOpt("theme_bg_g", b[2]); C.setOpt("theme_bg_b", b[3])
-    M:Info("Theme updated")
-end)
-
-do
-    local tr = C.getOpt("theme_r")
-    local tg = C.getOpt("theme_g")
-    local tb = C.getOpt("theme_b")
-    if tr and tg and tb then
-        M.T.accent = { tr, tg, tb }
-        M.T.notif_info = { tr, tg, tb }
-        thAccent:Set({ tr, tg, tb, 255 })
-    end
-    local br = C.getOpt("theme_bg_r")
-    local bg = C.getOpt("theme_bg_g")
-    local bb = C.getOpt("theme_bg_b")
-    if br and bg and bb then
-        M.T.accent_bg = { br, bg, bb, 255 }
-        thAccBg:Set({ br, bg, bb, 255 })
-    end
-end
 
 local lastWm
 local function wmSync()
@@ -1554,5 +1522,80 @@ M:OnFrame(function()
     pcall(ncSync)
     pcall(vrSync)
 end)
+
+-- Theme tab
+local ttab = M:Tab("Theme")
+local themeSec = ttab:Section("Colors")
+local thAccent = themeSec:ColorPicker("Accent color", { M.T.accent[1], M.T.accent[2], M.T.accent[3], 255 })
+local thAccBg  = themeSec:ColorPicker("Accent BG", { M.T.accent_bg[1], M.T.accent_bg[2], M.T.accent_bg[3], 255 })
+local thBg     = themeSec:ColorPicker("Background", { M.T.bg[1], M.T.bg[2], M.T.bg[3], 255 })
+local thText   = themeSec:ColorPicker("Text color", { M.T.text[1], M.T.text[2], M.T.text[3], 255 })
+themeSec:Button("Apply", function()
+    local a = thAccent:Get()
+    local b = thAccBg:Get()
+    local bg = thBg:Get()
+    local tx = thText:Get()
+    M.T.accent     = { a[1], a[2], a[3] }
+    M.T.accent_bg  = { b[1], b[2], b[3], 255 }
+    M.T.notif_info = { a[1], a[2], a[3] }
+    M.T.bg         = { bg[1], bg[2], bg[3], 255 }
+    M.T.bg2        = { math.max(bg[1]-5,0), math.max(bg[2]-5,0), math.max(bg[3]-5,0), 255 }
+    M.T.text       = { tx[1], tx[2], tx[3], 255 }
+    C.setOpt("theme_r", a[1]); C.setOpt("theme_g", a[2]); C.setOpt("theme_b", a[3])
+    C.setOpt("theme_bg_r", b[1]); C.setOpt("theme_bg_g", b[2]); C.setOpt("theme_bg_b", b[3])
+    C.setOpt("theme_main_r", bg[1]); C.setOpt("theme_main_g", bg[2]); C.setOpt("theme_main_b", bg[3])
+    C.setOpt("theme_text_r", tx[1]); C.setOpt("theme_text_g", tx[2]); C.setOpt("theme_text_b", tx[3])
+    M:Info("Theme applied")
+end)
+themeSec:Button("Reset to default", function()
+    M.T.accent     = { 220, 40, 40 }
+    M.T.accent_bg  = { 50, 20, 20, 255 }
+    M.T.notif_info = { 220, 40, 40 }
+    M.T.bg         = { 20, 20, 26, 255 }
+    M.T.bg2        = { 15, 15, 20, 255 }
+    M.T.text       = { 188, 188, 198, 255 }
+    thAccent:Set({ 220, 40, 40, 255 })
+    thAccBg:Set({ 50, 20, 20, 255 })
+    thBg:Set({ 20, 20, 26, 255 })
+    thText:Set({ 188, 188, 198, 255 })
+    C.setOpt("theme_r", nil); C.setOpt("theme_g", nil); C.setOpt("theme_b", nil)
+    C.setOpt("theme_bg_r", nil); C.setOpt("theme_bg_g", nil); C.setOpt("theme_bg_b", nil)
+    C.setOpt("theme_main_r", nil); C.setOpt("theme_main_g", nil); C.setOpt("theme_main_b", nil)
+    C.setOpt("theme_text_r", nil); C.setOpt("theme_text_g", nil); C.setOpt("theme_text_b", nil)
+    M:Info("Theme reset")
+end)
+
+do
+    local tr = C.getOpt("theme_r")
+    local tg = C.getOpt("theme_g")
+    local tb = C.getOpt("theme_b")
+    if tr and tg and tb then
+        M.T.accent = { tr, tg, tb }
+        M.T.notif_info = { tr, tg, tb }
+        thAccent:Set({ tr, tg, tb, 255 })
+    end
+    local br = C.getOpt("theme_bg_r")
+    local bgg = C.getOpt("theme_bg_g")
+    local bb = C.getOpt("theme_bg_b")
+    if br and bgg and bb then
+        M.T.accent_bg = { br, bgg, bb, 255 }
+        thAccBg:Set({ br, bgg, bb, 255 })
+    end
+    local mr = C.getOpt("theme_main_r")
+    local mg = C.getOpt("theme_main_g")
+    local mb = C.getOpt("theme_main_b")
+    if mr and mg and mb then
+        M.T.bg  = { mr, mg, mb, 255 }
+        M.T.bg2 = { math.max(mr-5,0), math.max(mg-5,0), math.max(mb-5,0), 255 }
+        thBg:Set({ mr, mg, mb, 255 })
+    end
+    local xr = C.getOpt("theme_text_r")
+    local xg = C.getOpt("theme_text_g")
+    local xb = C.getOpt("theme_text_b")
+    if xr and xg and xb then
+        M.T.text = { xr, xg, xb, 255 }
+        thText:Set({ xr, xg, xb, 255 })
+    end
+end
 
 M:Build({ w = 720, h = 500 })
