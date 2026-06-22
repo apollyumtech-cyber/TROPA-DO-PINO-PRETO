@@ -1103,19 +1103,15 @@ local actSec = tab:Section("Actions")
 actSec:Button("Remove",    function() C.remove(item()) end)
 actSec:Button("Reset All", function() C.resetAll() end)
 
-local cfgSec = tab:Section("Config")
-cfgSec:Button("Reset config", function() C.clearConfig() end)
-
-local presetSec = tab:Section("Presets")
-local presetCombo = presetSec:Combo("Slot", { "Preset 1", "Preset 2", "Preset 3", "Preset 4", "Preset 5" }, 1)
-presetSec:Button("Save preset", function()
+local cfgSec = tab:Section("Config / Presets")
+local presetCombo = cfgSec:Combo("Slot", { "Preset 1", "Preset 2", "Preset 3", "Preset 4", "Preset 5" }, 1)
+cfgSec:Button("Save preset", function()
     local slot = presetCombo:Get()
     local cfg = {}
     for _, it in ipairs(C.items) do
         local c = C.getCfg(it.def)
         if c then cfg[tostring(it.def)] = c end
     end
-    -- Save knife and glove defs
     cfg["_knifeDef"] = C.knifeDef()
     local serialized = {}
     for k, v in pairs(cfg) do
@@ -1128,18 +1124,15 @@ presetSec:Button("Save preset", function()
     C.setOpt("preset_" .. slot, table.concat(serialized, ";"))
     M:Info("Preset " .. slot .. " saved")
 end)
-presetSec:Button("Load preset", function()
+cfgSec:Button("Load preset", function()
     local slot = presetCombo:Get()
     local data = C.getOpt("preset_" .. slot)
     if not data or data == "" then M:Error("Preset " .. slot .. " is empty"); return end
-    -- Parse and apply
     C.resetAll()
     for entry in data:gmatch("[^;]+") do
         local key, vals = entry:match("^(.-)=(.+)$")
         if key and vals then
-            if key == "_knifeDef" then
-                -- handled via items
-            elseif key:match("^%d+$") then
+            if key:match("^%d+$") then
                 local def = tonumber(key)
                 local paint, wear, seed, kind = vals:match("^(%d+),([%d%.]+),(%d+),(%a+)$")
                 if def and paint then
@@ -1159,11 +1152,12 @@ presetSec:Button("Load preset", function()
     lastSig = nil
     M:Info("Preset " .. slot .. " loaded")
 end)
-presetSec:Button("Delete preset", function()
+cfgSec:Button("Delete preset", function()
     local slot = presetCombo:Get()
     C.setOpt("preset_" .. slot, nil)
     M:Info("Preset " .. slot .. " deleted")
 end)
+cfgSec:Button("Reset all skins", function() C.clearConfig() end)
 
 -- Override item() to use category-filtered items
 _lastCat = 1
