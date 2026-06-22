@@ -1729,22 +1729,30 @@ do local s = C.getOpt("nc_text"); if type(s) == "string" then ncText:Set(s) end 
 vrOn:Set(getBool("vr_on", false))
 do local p = tonumber(C.getOpt("vr_mode")); if p and p >= 1 and p <= 3 then vrMode:Set(p) end end
 
+local _frameCount = 0
 M:OnFrame(function()
+    _frameCount = _frameCount + 1
     pcall(syncCategory)
-    pcall(autoFollow)
-    pcall(syncSkins)
-    pcall(autoApply)
-    pcall(persistOpts)
-    pcall(syncModel)
-    pcall(syncVm)
-    pcall(HS.missTick)
-    pcall(HS.sync)
     pcall(HS.flushSounds)
-    pcall(hlSync)
-    pcall(wmSync)
-    pcall(rgSync)
-    pcall(ncSync)
-    pcall(vrSync)
+    pcall(HS.missTick)
+    -- Run heavy stuff every 5 frames
+    if _frameCount % 5 == 0 then
+        pcall(autoFollow)
+        pcall(syncSkins)
+        pcall(autoApply)
+        pcall(syncVm)
+        pcall(HS.sync)
+    end
+    -- Run slow stuff every 30 frames
+    if _frameCount % 30 == 0 then
+        pcall(persistOpts)
+        pcall(syncModel)
+        pcall(hlSync)
+        pcall(wmSync)
+        pcall(rgSync)
+        pcall(ncSync)
+        pcall(vrSync)
+    end
 end)
 
 -- Theme tab
@@ -1931,8 +1939,5 @@ extraSec:Button("Reset stats", function()
     STATS.shots = 0; STATS.headshots = 0; STATS.dmg = 0
     M:Info("Stats reset")
 end)
-
--- Night mode sync removed (causes crash)
-M:OnFrame(function() end)
 
 M:Build({ w = 950, h = 620, x = 200, y = 100 })
