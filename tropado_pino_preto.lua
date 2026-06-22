@@ -331,7 +331,6 @@ do
         end
         _sndQueue = {}
     end
-    end
 
     function HS.playHit()  play(resolve(hsCmb), hsVol:Get()) end
     function HS.playKill() play(resolve(ksCmb), ksVol:Get()) end
