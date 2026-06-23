@@ -13,6 +13,7 @@ local BASE = "https://raw.githubusercontent.com/" .. USER .. "/" .. REPO .. "/" 
 -- ========== HWID GENERATION ==========
 local function getHWID()
     local hwid = ""
+    -- Method 1: Try FFI disk serial
     pcall(function()
         local ffi = rawget(_G, "ffi")
         if not ffi then return end
@@ -21,41 +22,28 @@ local function getHWID()
                 const char*, char*, uint32_t, uint32_t*,
                 uint32_t*, uint32_t*, char*, uint32_t
             );
-            int GetComputerNameA(char*, uint32_t*);
         ]] end)
-
-        -- Try disk serial first
-        local diskSerial = 0
-        pcall(function()
-            local serial = ffi.new("uint32_t[1]")
-            local ok = ffi.C.GetVolumeInformationA("C:\\", nil, 0, serial, nil, nil, nil, 0)
-            if ok ~= 0 then diskSerial = tonumber(serial[0]) or 0 end
-        end)
-
-        -- Fallback: try computer name if disk serial fails
-        if diskSerial == 0 then
-            pcall(function()
-                local buf = ffi.new("char[256]")
-                local size = ffi.new("uint32_t[1]", 256)
-                ffi.C.GetComputerNameA(buf, size)
-                local name = ffi.string(buf)
-                for i = 1, #name do
-                    diskSerial = diskSerial + name:byte(i) * (i * 31)
-                end
-            end)
+        local serial = ffi.new("uint32_t[1]")
+        local ok = ffi.C.GetVolumeInformationA("C:\\", nil, 0, serial, nil, nil, nil, 0)
+        if ok ~= 0 and tonumber(serial[0]) ~= 0 then
+            local diskSerial = tonumber(serial[0])
+            local machineID = string.format("%08X", diskSerial)
+            local hash = 0
+            for i = 1, #machineID do
+                hash = (hash * 31 + machineID:byte(i)) % 0xFFFFFFFF
+            end
+            hwid = string.format("%08X%08X", diskSerial, hash)
         end
-
-        if diskSerial == 0 then return end
-
-        -- Simple hash without bit library
-        local machineID = string.format("%08X", diskSerial)
-        local hash = 0
-        for i = 1, #machineID do
-            hash = (hash * 31 + machineID:byte(i)) % 0xFFFFFFFF
-        end
-
-        hwid = string.format("%08X%08X", diskSerial, hash)
     end)
+    -- Method 2: Fallback to Aimware username
+    if hwid == "" then
+        pcall(function()
+            local name = cheat.GetUserName()
+            if name and #name > 0 then
+                hwid = "AW_" .. name
+            end
+        end)
+    end
     return hwid
 end
 
