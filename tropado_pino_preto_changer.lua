@@ -285,14 +285,49 @@ local SKINS = {
   [5035]={{"Case Hardened",10060},{"Emerald",10057},{"Mangrove",10058},{"Rattler",10059}},
 }
 
+-- Paint kits that are procedurally generated (always work)
+local SAFE_PAINTS = {
+    [38] = true,   -- Fade
+    [44] = true,   -- Case Hardened
+    [417] = true, [418] = true, [419] = true, [420] = true, [421] = true, [415] = true, [416] = true, -- Doppler
+    [568] = true, [569] = true, [570] = true, [571] = true, [572] = true, -- Gamma Doppler
+    [413] = true,  -- Marble Fade
+    [409] = true,  -- Tiger Tooth
+    [410] = true, [411] = true, [857] = true, [858] = true, -- Damascus Steel
+    [42] = true,   -- Blue Steel
+    [414] = true,  -- Rust Coat
+    [59] = true,   -- Slaughter
+    [12] = true,   -- Crimson Web
+    [98] = true,   -- Ultraviolet
+    [40] = true,   -- Night
+    [43] = true,   -- Stained
+    [77] = true,   -- Boreal Forest
+    [5] = true,    -- Forest DDPAT
+    [72] = true,   -- Safari Mesh
+    [143] = true,  -- Urban Masked
+    [175] = true,  -- Scorched
+    [735] = true,  -- Night Stripe
+    [3] = true,    -- Candy Apple
+    [33] = true,   -- Hot Rod
+    [70] = true,   -- Carbon Fiber
+    [17] = true,   -- Urban DDPAT
+    [28] = true,   -- Anodized Navy
+    [32] = true,   -- Silver
+    [99] = true,   -- Sand Dune
+    [617] = true, [618] = true, [619] = true, -- Doppler alt
+    [852] = true, [853] = true, [854] = true, [855] = true, [856] = true, -- Talon Doppler
+}
+
 local function skin_list_for(def)
     local names  = { "[ None ]" }
     local paints = { 0 }
     local src = def and SKINS[def]
     if src then
         for i = 1, #src do
-            names[i+1]  = src[i][1]
-            paints[i+1] = src[i][2]
+            local paintId = src[i][2]
+            local prefix = SAFE_PAINTS[paintId] and "[+] " or ""
+            names[i+1]  = prefix .. src[i][1]
+            paints[i+1] = paintId
         end
     end
     return names, paints
