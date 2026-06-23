@@ -361,9 +361,6 @@ do
         if path == "" then return end
         vol = (tonumber(vol) or 100) / 100
         if vol <= 0 then return end
-        -- Try to play immediately first, queue as fallback
-        pcall(function() client.SetConVar("snd_toolvolume", vol, true) end)
-        pcall(function() client.Command("play sounds\\" .. path, true) end)
         _sndQueue[#_sndQueue + 1] = { path = path, vol = vol }
     end
 
@@ -1722,9 +1719,8 @@ do local p = tonumber(C.getOpt("vr_mode")); if p and p >= 1 and p <= 3 then vrMo
 local _frameCount = 0
 M:OnFrame(function()
     _frameCount = _frameCount + 1
-    pcall(syncCategory)
     pcall(HS.flushSounds)
-    pcall(HS.missTick)
+    pcall(syncCategory)
     -- Run heavy stuff every 5 frames
     if _frameCount % 5 == 0 then
         pcall(autoFollow)

@@ -1847,15 +1847,7 @@ function M:Build(opts)
         pcall(function() self:_drawWatermark() end)
 
         ALPHA = 1
-        -- Only run onframe callbacks every 3 frames when menu is closed
-        if open then
-            for _, fn in ipairs(self._onframe) do pcall(fn, UI) end
-        else
-            self._ofTick = (self._ofTick or 0) + 1
-            if self._ofTick % 3 == 0 then
-                for _, fn in ipairs(self._onframe) do pcall(fn, UI) end
-            end
-        end
+        for _, fn in ipairs(self._onframe) do pcall(fn, UI) end
 
         if not open and self._t < 0.005 then self._t = 0; return end
 
