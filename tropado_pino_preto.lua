@@ -1050,38 +1050,6 @@ pcall(function()
                 BOMB.planted = false
             end
         end)
-        -- Stats
-        pcall(function()
-            local name = ev:GetName()
-            if name == "player_death" then
-                local attacker, victim
-                pcall(function() attacker = ev:GetInt("attacker") end)
-                pcall(function() victim = ev:GetInt("userid") end)
-                local lctrl, elist = nil, nil
-                pcall(function()
-                    local base = mem.GetModuleBase("client.dll")
-                    lctrl = tonumber(ffi.cast("uint64_t*", base + C.offsets.dwLocalPlayerController)[0])
-                    elist = tonumber(ffi.cast("uint64_t*", base + C.offsets.dwEntityList)[0])
-                end)
-                if lctrl and elist then
-                    local function slotEnt(idx)
-                        if not idx or idx < 0 then return nil end
-                        local chunk = tonumber(ffi.cast("uint64_t*", elist + 8 * bit.rshift(idx + 1, 9) + 16)[0])
-                        if not chunk or chunk < 0x10000 then return nil end
-                        return tonumber(ffi.cast("uint64_t*", chunk + 112 * bit.band(idx + 1, 0x1FF))[0])
-                    end
-                    local meAttack = slotEnt(attacker or -1) == lctrl
-                    local meVictim = slotEnt(victim or -1) == lctrl
-                    if meAttack and not meVictim then
-                        STATS.kills = STATS.kills + 1
-                        local hs = 0
-                        pcall(function() hs = ev:GetInt("headshot") end)
-                        if hs == 1 then STATS.headshots = STATS.headshots + 1 end
-                    end
-                    if meVictim then STATS.deaths = STATS.deaths + 1 end
-                end
-            end
-        end)
     end)
 end)
 
@@ -1885,15 +1853,6 @@ M:OnFrame(function(ui)
         else
             BOMB.planted = false
         end
-    end
-
-    -- Stats overlay (small, top-left below watermark)
-    if STATS.kills > 0 or STATS.deaths > 0 then
-        local kd = STATS.deaths > 0 and string.format("%.2f", STATS.kills / STATS.deaths) or tostring(STATS.kills)
-        local hsp = STATS.kills > 0 and math.floor(STATS.headshots / STATS.kills * 100) or 0
-        local txt = string.format("K:%d D:%d KD:%s HS:%d%%", STATS.kills, STATS.deaths, kd, hsp)
-        draw.Color(255, 255, 255, 180)
-        draw.Text(14, 50, txt)
     end
 end)
 
