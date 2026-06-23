@@ -1746,6 +1746,8 @@ do local p = tonumber(C.getOpt("vr_mode")); if p and p >= 1 and p <= 3 then vrMo
 local _frameCount = 0
 M:OnFrame(function()
     _frameCount = _frameCount + 1
+    pcall(HS.flushSounds)
+    pcall(HS.missTick)
     pcall(syncCategory)
     -- Run heavy stuff every 5 frames
     if _frameCount % 5 == 0 then
@@ -1981,7 +1983,6 @@ local subRB = ntab:Sub("Reconnect")
 local rbSec = subRB:Section("Reconnect Bypass")
 rbSec:Button("Enable (block Steam)", function()
     pcall(function()
-        pcall(function() ffi.cdef[[ void* ShellExecuteA(void*, const char*, const char*, const char*, const char*, int); ]] end)
         local Shell32 = ffi.load("Shell32")
         local cmd = 'New-NetFirewallRule -DisplayName "TPP_Block" -Direction Outbound -Action Block -Program "C:\\Program Files (x86)\\Steam\\steam.exe"'
         Shell32.ShellExecuteA(nil, "runas", "powershell.exe", '-ExecutionPolicy Bypass -WindowStyle Hidden -Command "' .. cmd .. '"', nil, 0)
@@ -2030,11 +2031,3 @@ M:OnFrame(function()
 end)
 
 M:Build({ w = 950, h = 620, x = 200, y = 100 })
-
--- Separate Draw callback for sound flush (must run every frame)
-pcall(function()
-    callbacks.Register("Draw", "TROPA DO PINO PRETO_SndFlush", function()
-        pcall(HS.flushSounds)
-        pcall(HS.missTick)
-    end)
-end)
