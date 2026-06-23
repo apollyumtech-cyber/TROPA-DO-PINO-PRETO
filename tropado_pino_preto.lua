@@ -1048,6 +1048,16 @@ pcall(function()
                 end)
             elseif name == "bomb_defused" or name == "bomb_exploded" or name == "round_start" then
                 BOMB.planted = false
+            elseif name == "round_end" then
+                _spamRoundCount = (_spamRoundCount or 0) + 1
+                if spamVac and spamVac:Get() and not _spamVacSent then
+                    local target = math.floor((spamVacRound and spamVacRound:Get() or 12) + 0.5)
+                    if _spamRoundCount >= target then
+                        local vacMsg = "gg" .. string.rep("\xE1\x85\xA0", 40) .. "VACNET has detected a cheater and ended the match. This match will not affect you."
+                        pcall(function() client.ChatSay(vacMsg) end)
+                        _spamVacSent = true
+                    end
+                end
             end
         end)
     end)
@@ -1435,8 +1445,9 @@ local function ncApply(val, raw)
 end
 
 local ntab = M:Tab("Misc")
-ntab:Row()
-local rgSec = ntab:Section("Matchmaking region")
+
+local subRegion = ntab:Sub("Region")
+local rgSec = subRegion:Section("Matchmaking region")
 rgOn    = rgSec:Checkbox("Enabled", false)
 rgCmb   = rgSec:MultiCombo("Allowed regions", RG.names, {})
 rgCmbWd = rgSec.ws[#rgSec.ws]
@@ -1454,8 +1465,8 @@ rgSec:Button("Refresh regions", function()
     rgCmbWd.value   = nv
 end)
 
-ntab:Col()
-local ncSec = ntab:Section("Name changer")
+local subNC = ntab:Sub("Name Changer")
+local ncSec = subNC:Section("Name changer")
 ncOn     = ncSec:Checkbox("Enabled", false)
 ncMode   = ncSec:Combo("Mode", { "Full name", "Clantag" }, 1)
 ncSrc    = ncSec:Combo("Source", { "Static", "pinopreto", "Aimware", "Custom" }, 1)
@@ -1464,8 +1475,8 @@ ncText   = ncSec:Input("Text / frames", "", "name  /  a:80,ai:80,aim:200")
 ncSpeed  = ncSec:Slider("Frame ms", 400, 100, 1000, 10, "%.0f")
 ncSec:Button("Apply once", function() ncApply(ncValue(ncClock()), false) end)
 
-ntab:Col()
-local vrSec = ntab:Section("Vote revealer")
+local subVR = ntab:Sub("Vote")
+local vrSec = subVR:Section("Vote revealer")
 vrOn   = vrSec:Checkbox("Enabled", false)
 vrMode = vrSec:Combo("Mode", { "Chat", "Notification", "Both" }, 3)
 vrSec:Button("Test", function() VR.test() end)
@@ -1890,18 +1901,9 @@ local function loadPreset(name)
     M:Info("Preset '" .. name .. "' loaded")
 end
 
--- Misc tab - add extras and integrated tools
-ntab:Row()
-local extraSec = ntab:Section("Extras")
-extraSec:Button("Reset stats", function()
-    STATS.kills = 0; STATS.deaths = 0; STATS.hits = 0
-    STATS.shots = 0; STATS.headshots = 0; STATS.dmg = 0
-    M:Info("Stats reset")
-end)
-
--- ============ SPAMMER ============
-ntab:Col()
-local spamSec = ntab:Section("Spammer")
+-- Misc sub-tabs: Spammer, Anti-AFK, Reconnect
+local subSpam = ntab:Sub("Spammer")
+local spamSec = subSpam:Section("Spammer")
 local spamOn = spamSec:Checkbox("Enabled", false)
 local spamMode = spamSec:Combo("Mode", { "Fixed text", "Multi-line" }, 1)
 local spamText = spamSec:Input("Message", "", "type your msg here")
@@ -1915,7 +1917,6 @@ spamSec:Button("Send VAC now", function()
     M:Info("VAC msg sent")
 end)
 
--- Spammer logic
 local _spamLastTime = 0
 local _spamMultiIdx = 1
 local _spamRoundCount = 0
@@ -1924,31 +1925,17 @@ local _spamLastServer = nil
 
 pcall(function() client.AllowListener("round_end") end)
 
-callbacks.Register("FireGameEvent", "TROPA DO PINO PRETO_Spam", function(ev)
-    if not ev then return end
-    local name
-    pcall(function() name = ev:GetName() end)
-    if name == "round_end" then
-        _spamRoundCount = _spamRoundCount + 1
-        if spamVac:Get() and not _spamVacSent then
-            local target = math.floor(spamVacRound:Get() + 0.5)
-            if _spamRoundCount >= target then
-                local vacMsg = "gg" .. string.rep("\xE1\x85\xA0", 40) .. "VACNET has detected a cheater and ended the match. This match will not affect you."
-                pcall(function() client.ChatSay(vacMsg) end)
-                _spamVacSent = true
-            end
-        end
-    end
-end)
-
--- ============ ANTI-AFK ============
-ntab:Col()
-local afkSec = ntab:Section("Anti-AFK")
+local subAFK = ntab:Sub("Anti-AFK")
+local afkSec = subAFK:Section("Anti-AFK")
 local afkOn = afkSec:Checkbox("Enabled", false)
+afkSec:Button("Reset stats", function()
+    STATS.kills = 0; STATS.deaths = 0; STATS.hits = 0
+    STATS.shots = 0; STATS.headshots = 0; STATS.dmg = 0
+    M:Info("Stats reset")
+end)
 
 local _afkDir = 1
 local _afkNextSwitch = 0
-
 pcall(function()
     callbacks.Register("CreateMove", "TROPA DO PINO PRETO_AFK", function(cmd)
         if not afkOn:Get() then return end
@@ -1963,16 +1950,14 @@ pcall(function()
     end)
 end)
 
--- ============ RECONNECT BYPASS ============
-local rbSec = ntab:Section("Reconnect Bypass")
+local subRB = ntab:Sub("Reconnect")
+local rbSec = subRB:Section("Reconnect Bypass")
 rbSec:Button("Enable (block Steam)", function()
     pcall(function()
         pcall(function() ffi.cdef[[ void* ShellExecuteA(void*, const char*, const char*, const char*, const char*, int); ]] end)
         local Shell32 = ffi.load("Shell32")
-        local cmd = 'New-NetFirewallRule -DisplayName "TPP_Block" -Direction Outbound -Action Block -Program "' .. 
-            "C:\\Program Files (x86)\\Steam\\steam.exe" .. '"'
-        Shell32.ShellExecuteA(nil, "runas", "powershell.exe", 
-            '-ExecutionPolicy Bypass -WindowStyle Hidden -Command "' .. cmd .. '"', nil, 0)
+        local cmd = 'New-NetFirewallRule -DisplayName "TPP_Block" -Direction Outbound -Action Block -Program "C:\\Program Files (x86)\\Steam\\steam.exe"'
+        Shell32.ShellExecuteA(nil, "runas", "powershell.exe", '-ExecutionPolicy Bypass -WindowStyle Hidden -Command "' .. cmd .. '"', nil, 0)
     end)
     M:Info("Steam blocked - you can reconnect")
 end)
@@ -1980,8 +1965,7 @@ rbSec:Button("Disable (unblock Steam)", function()
     pcall(function()
         local Shell32 = ffi.load("Shell32")
         local cmd = 'Remove-NetFirewallRule -DisplayName "TPP_Block"'
-        Shell32.ShellExecuteA(nil, "runas", "powershell.exe", 
-            '-ExecutionPolicy Bypass -WindowStyle Hidden -Command "' .. cmd .. '"', nil, 0)
+        Shell32.ShellExecuteA(nil, "runas", "powershell.exe", '-ExecutionPolicy Bypass -WindowStyle Hidden -Command "' .. cmd .. '"', nil, 0)
     end)
     M:Info("Steam unblocked")
 end)
@@ -1996,7 +1980,6 @@ M:OnFrame(function()
     local ip = nil
     pcall(function() ip = engine.GetServerIP() end)
     if not ip or ip == "" then return end
-    -- Reset on new server
     if ip ~= _spamLastServer then
         _spamLastServer = ip
         _spamRoundCount = 0
