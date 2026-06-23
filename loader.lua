@@ -47,11 +47,11 @@ local function getHWID()
 
         if diskSerial == 0 then return end
 
+        -- Simple hash without bit library
         local machineID = string.format("%08X", diskSerial)
-        local hash = 0x5A3C1E7D
+        local hash = 0
         for i = 1, #machineID do
-            hash = bit.bxor(hash, machineID:byte(i) * 0x1000193)
-            hash = bit.band(hash, 0xFFFFFFFF)
+            hash = (hash * 31 + machineID:byte(i)) % 0xFFFFFFFF
         end
 
         hwid = string.format("%08X%08X", diskSerial, hash)
