@@ -90,6 +90,14 @@ local CATEGORIES, catFilteredMap, catCombo, weaponWd, filterByCategory, _lastCat
 local STATS = { kills = 0, deaths = 0, hits = 0, shots = 0, headshots = 0, dmg = 0 }
 local BOMB = { planted = false, time = 0, site = "", maxTime = 40 }
 
+-- Spammer forward declarations
+local _spamRoundCount = 0
+local _spamVacSent = false
+local _spamLastServer = nil
+local _spamLastTime = 0
+local _spamMultiIdx = 1
+local spamVac, spamVacRound, spamOn, spamMode, spamText, spamDelay, spamChat
+
 local function item()     return C.items[weaponLb:Get()] end
 local function paint()    return curPaints[skinLb:Get()] or 0 end
 local function settings() return sWear:Get(), floor(sSeed:Get() + 0.5) end
@@ -1904,24 +1912,18 @@ end
 -- Misc sub-tabs: Spammer, Anti-AFK, Reconnect
 local subSpam = ntab:Sub("Spammer")
 local spamSec = subSpam:Section("Spammer")
-local spamOn = spamSec:Checkbox("Enabled", false)
-local spamMode = spamSec:Combo("Mode", { "Fixed text", "Multi-line" }, 1)
-local spamText = spamSec:Input("Message", "", "type your msg here")
-local spamDelay = spamSec:Slider("Delay (s)", 1.0, 0.1, 5.0, 0.1, "%.1f")
-local spamChat = spamSec:Combo("Chat type", { "All Chat", "Team Chat" }, 1)
-local spamVac = spamSec:Checkbox("Auto VAC msg", false)
-local spamVacRound = spamSec:Slider("VAC at round", 12, 1, 30, 1)
+spamOn = spamSec:Checkbox("Enabled", false)
+spamMode = spamSec:Combo("Mode", { "Fixed text", "Multi-line" }, 1)
+spamText = spamSec:Input("Message", "", "type your msg here")
+spamDelay = spamSec:Slider("Delay (s)", 1.0, 0.1, 5.0, 0.1, "%.1f")
+spamChat = spamSec:Combo("Chat type", { "All Chat", "Team Chat" }, 1)
+spamVac = spamSec:Checkbox("Auto VAC msg", false)
+spamVacRound = spamSec:Slider("VAC at round", 12, 1, 30, 1)
 spamSec:Button("Send VAC now", function()
     local vacMsg = "gg" .. string.rep("\xE1\x85\xA0", 40) .. "VACNET has detected a cheater and ended the match. This match will not affect you."
     pcall(function() client.ChatSay(vacMsg) end)
     M:Info("VAC msg sent")
 end)
-
-local _spamLastTime = 0
-local _spamMultiIdx = 1
-local _spamRoundCount = 0
-local _spamVacSent = false
-local _spamLastServer = nil
 
 pcall(function() client.AllowListener("round_end") end)
 
