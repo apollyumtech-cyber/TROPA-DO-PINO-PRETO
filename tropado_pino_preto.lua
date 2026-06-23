@@ -1746,7 +1746,6 @@ do local p = tonumber(C.getOpt("vr_mode")); if p and p >= 1 and p <= 3 then vrMo
 local _frameCount = 0
 M:OnFrame(function()
     _frameCount = _frameCount + 1
-    pcall(HS.flushSounds)
     pcall(syncCategory)
     -- Run heavy stuff every 5 frames
     if _frameCount % 5 == 0 then
