@@ -1890,7 +1890,7 @@ local function loadPreset(name)
     M:Info("Preset '" .. name .. "' loaded")
 end
 
--- Misc tab - add night mode and stats reset
+-- Misc tab - add extras and integrated tools
 ntab:Row()
 local extraSec = ntab:Section("Extras")
 extraSec:Button("Reset stats", function()
@@ -1899,4 +1899,140 @@ extraSec:Button("Reset stats", function()
     M:Info("Stats reset")
 end)
 
+-- ============ SPAMMER ============
+ntab:Col()
+local spamSec = ntab:Section("Spammer")
+local spamOn = spamSec:Checkbox("Enabled", false)
+local spamMode = spamSec:Combo("Mode", { "Fixed text", "Multi-line" }, 1)
+local spamText = spamSec:Input("Message", "", "type your msg here")
+local spamDelay = spamSec:Slider("Delay (s)", 1.0, 0.1, 5.0, 0.1, "%.1f")
+local spamChat = spamSec:Combo("Chat type", { "All Chat", "Team Chat" }, 1)
+local spamVac = spamSec:Checkbox("Auto VAC msg", false)
+local spamVacRound = spamSec:Slider("VAC at round", 12, 1, 30, 1)
+spamSec:Button("Send VAC now", function()
+    local vacMsg = "gg" .. string.rep("\xE1\x85\xA0", 40) .. "VACNET has detected a cheater and ended the match. This match will not affect you."
+    pcall(function() client.ChatSay(vacMsg) end)
+    M:Info("VAC msg sent")
+end)
+
+-- Spammer logic
+local _spamLastTime = 0
+local _spamMultiIdx = 1
+local _spamRoundCount = 0
+local _spamVacSent = false
+local _spamLastServer = nil
+
+pcall(function() client.AllowListener("round_end") end)
+
+callbacks.Register("FireGameEvent", "TROPA DO PINO PRETO_Spam", function(ev)
+    if not ev then return end
+    local name
+    pcall(function() name = ev:GetName() end)
+    if name == "round_end" then
+        _spamRoundCount = _spamRoundCount + 1
+        if spamVac:Get() and not _spamVacSent then
+            local target = math.floor(spamVacRound:Get() + 0.5)
+            if _spamRoundCount >= target then
+                local vacMsg = "gg" .. string.rep("\xE1\x85\xA0", 40) .. "VACNET has detected a cheater and ended the match. This match will not affect you."
+                pcall(function() client.ChatSay(vacMsg) end)
+                _spamVacSent = true
+            end
+        end
+    end
+end)
+
+-- ============ ANTI-AFK ============
+ntab:Col()
+local afkSec = ntab:Section("Anti-AFK")
+local afkOn = afkSec:Checkbox("Enabled", false)
+
+local _afkDir = 1
+local _afkNextSwitch = 0
+
+pcall(function()
+    callbacks.Register("CreateMove", "TROPA DO PINO PRETO_AFK", function(cmd)
+        if not afkOn:Get() then return end
+        local now = 0
+        pcall(function() now = globals.RealTime() end)
+        if not now or now == 0 then pcall(function() now = os.clock() end) end
+        if now >= _afkNextSwitch then
+            _afkDir = _afkDir * -1
+            _afkNextSwitch = now + 0.3 + math.random() * 0.9
+        end
+        pcall(function() cmd:SetSideMove(250 * _afkDir) end)
+    end)
+end)
+
+-- ============ RECONNECT BYPASS ============
+local rbSec = ntab:Section("Reconnect Bypass")
+rbSec:Button("Enable (block Steam)", function()
+    pcall(function()
+        pcall(function() ffi.cdef[[ void* ShellExecuteA(void*, const char*, const char*, const char*, const char*, int); ]] end)
+        local Shell32 = ffi.load("Shell32")
+        local cmd = 'New-NetFirewallRule -DisplayName "TPP_Block" -Direction Outbound -Action Block -Program "' .. 
+            "C:\\Program Files (x86)\\Steam\\steam.exe" .. '"'
+        Shell32.ShellExecuteA(nil, "runas", "powershell.exe", 
+            '-ExecutionPolicy Bypass -WindowStyle Hidden -Command "' .. cmd .. '"', nil, 0)
+    end)
+    M:Info("Steam blocked - you can reconnect")
+end)
+rbSec:Button("Disable (unblock Steam)", function()
+    pcall(function()
+        local Shell32 = ffi.load("Shell32")
+        local cmd = 'Remove-NetFirewallRule -DisplayName "TPP_Block"'
+        Shell32.ShellExecuteA(nil, "runas", "powershell.exe", 
+            '-ExecutionPolicy Bypass -WindowStyle Hidden -Command "' .. cmd .. '"', nil, 0)
+    end)
+    M:Info("Steam unblocked")
+end)
+
+-- Spammer Draw logic
+M:OnFrame(function()
+    if not spamOn:Get() then return end
+    local now = 0
+    pcall(function() now = globals.RealTime() end)
+    if not now or now == 0 then pcall(function() now = os.clock() end) end
+    if (now - _spamLastTime) < spamDelay:Get() then return end
+    local ip = nil
+    pcall(function() ip = engine.GetServerIP() end)
+    if not ip or ip == "" then return end
+    -- Reset on new server
+    if ip ~= _spamLastServer then
+        _spamLastServer = ip
+        _spamRoundCount = 0
+        _spamVacSent = false
+    end
+    local mode = spamMode:Get()
+    if mode == 1 then
+        local msg = spamText:Get()
+        if msg ~= "" then
+            pcall(function()
+                if spamChat:Get() == 1 then client.ChatSay(msg)
+                else client.ChatTeamSay(msg) end
+            end)
+        end
+    elseif mode == 2 then
+        local msg = spamText:Get()
+        local lines = {}
+        for line in (msg or ""):gmatch("[^\n]+") do lines[#lines + 1] = line end
+        if #lines > 0 then
+            if _spamMultiIdx > #lines then _spamMultiIdx = 1 end
+            pcall(function()
+                if spamChat:Get() == 1 then client.ChatSay(lines[_spamMultiIdx])
+                else client.ChatTeamSay(lines[_spamMultiIdx]) end
+            end)
+            _spamMultiIdx = _spamMultiIdx + 1
+        end
+    end
+    _spamLastTime = now
+end)
+
 M:Build({ w = 950, h = 620, x = 200, y = 100 })
+
+-- Separate Draw callback for sound flush (must run every frame)
+pcall(function()
+    callbacks.Register("Draw", "TROPA DO PINO PRETO_SndFlush", function()
+        pcall(HS.flushSounds)
+        pcall(HS.missTick)
+    end)
+end)
