@@ -1841,13 +1841,21 @@ function M:Build(opts)
             return
         end
 
-        updateMouse()
+        if open then updateMouse() end
         pcall(function() self:_drawToasts() end)
         pcall(function() self:_drawHitlog() end)
         pcall(function() self:_drawWatermark() end)
 
         ALPHA = 1
-        for _, fn in ipairs(self._onframe) do pcall(fn, UI) end
+        -- Only run onframe callbacks every 3 frames when menu is closed
+        if open then
+            for _, fn in ipairs(self._onframe) do pcall(fn, UI) end
+        else
+            self._ofTick = (self._ofTick or 0) + 1
+            if self._ofTick % 3 == 0 then
+                for _, fn in ipairs(self._onframe) do pcall(fn, UI) end
+            end
+        end
 
         if not open and self._t < 0.005 then self._t = 0; return end
 
