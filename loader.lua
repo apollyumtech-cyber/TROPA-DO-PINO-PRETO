@@ -10,49 +10,18 @@ end
 
 local BASE = "https://raw.githubusercontent.com/" .. USER .. "/" .. REPO .. "/" .. ref() .. "/"
 
--- ========== HWID GENERATION ==========
-local function getHWID()
-    local hwid = ""
-    -- Method 1: Try FFI disk serial
-    pcall(function()
-        local ffi = rawget(_G, "ffi")
-        if not ffi then return end
-        pcall(function() ffi.cdef[[
-            int GetVolumeInformationA(
-                const char*, char*, uint32_t, uint32_t*,
-                uint32_t*, uint32_t*, char*, uint32_t
-            );
-        ]] end)
-        local serial = ffi.new("uint32_t[1]")
-        local ok = ffi.C.GetVolumeInformationA("C:\\", nil, 0, serial, nil, nil, nil, 0)
-        if ok ~= 0 and tonumber(serial[0]) ~= 0 then
-            local diskSerial = tonumber(serial[0])
-            local machineID = string.format("%08X", diskSerial)
-            local hash = 0
-            for i = 1, #machineID do
-                hash = (hash * 31 + machineID:byte(i)) % 0xFFFFFFFF
-            end
-            hwid = string.format("%08X%08X", diskSerial, hash)
-        end
-    end)
-    -- Method 2: Fallback to Aimware username
-    if hwid == "" then
-        pcall(function()
-            local name = cheat.GetUserName()
-            if name and #name > 0 then
-                hwid = "AW_" .. name
-            end
-        end)
-    end
-    return hwid
+-- ========== AUTH CHECK ==========
+local function getUsername()
+    local name = ""
+    pcall(function() name = cheat.GetUserName() end)
+    return name
 end
 
--- ========== AUTH CHECK ==========
-local function checkAuth(hwid)
+local function checkAuth(username)
     local authURL = BASE .. "auth.txt"
     local authData = nil
     pcall(function() authData = http.Get(authURL) end)
-    if not authData or #authData < 5 then
+    if not authData or #authData < 3 then
         pcall(function() authData = http.Get(authURL) end)
     end
     if not authData then
@@ -61,7 +30,7 @@ local function checkAuth(hwid)
     end
     for line in authData:gmatch("[^\r\n]+") do
         local clean = line:gsub("%s", ""):gsub("%-%-.*", "")
-        if clean ~= "" and clean:upper() == hwid:upper() then
+        if clean ~= "" and clean:lower() == username:lower() then
             return true
         end
     end
@@ -69,18 +38,18 @@ local function checkAuth(hwid)
 end
 
 -- ========== MAIN ==========
-local hwid = getHWID()
+local username = getUsername()
 
-if hwid == "" or #hwid < 8 then
-    print(TAG .. "ERROR: Could not generate HWID")
+if username == "" then
+    print(TAG .. "ERROR: Could not get username")
     return
 end
 
-print(TAG .. "Your HWID: " .. hwid)
+print(TAG .. "User: " .. username)
 
-if not checkAuth(hwid) then
-    print(TAG .. "ACCESS DENIED - HWID not authorized")
-    print(TAG .. "Send this HWID to admin: " .. hwid)
+if not checkAuth(username) then
+    print(TAG .. "ACCESS DENIED - User not authorized")
+    print(TAG .. "Send this name to admin: " .. username)
     return
 end
 
