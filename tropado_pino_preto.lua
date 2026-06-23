@@ -1977,14 +1977,6 @@ M:OnFrame(function()
     pcall(function() now = globals.RealTime() end)
     if not now or now == 0 then pcall(function() now = os.clock() end) end
     if (now - _spamLastTime) < spamDelay:Get() then return end
-    local ip = nil
-    pcall(function() ip = engine.GetServerIP() end)
-    if not ip or ip == "" then return end
-    if ip ~= _spamLastServer then
-        _spamLastServer = ip
-        _spamRoundCount = 0
-        _spamVacSent = false
-    end
     local mode = spamMode:Get()
     if mode == 1 then
         local msg = spamText:Get()
