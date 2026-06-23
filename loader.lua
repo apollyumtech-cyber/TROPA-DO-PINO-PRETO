@@ -14,25 +14,40 @@ local BASE = "https://raw.githubusercontent.com/" .. USER .. "/" .. REPO .. "/" 
 local function getHWID()
     local hwid = ""
     pcall(function()
-        local ffi = ffi or require("ffi")
+        local ffi = rawget(_G, "ffi")
+        if not ffi then return end
         pcall(function() ffi.cdef[[
             int GetVolumeInformationA(
                 const char*, char*, uint32_t, uint32_t*,
                 uint32_t*, uint32_t*, char*, uint32_t
             );
-            void GetSystemInfo(void*);
-            unsigned int GetCurrentProcessId(void);
+            int GetComputerNameA(char*, uint32_t*);
         ]] end)
 
-        -- Disk serial
-        local serial = ffi.new("uint32_t[1]")
-        ffi.C.GetVolumeInformationA("C:\\", nil, 0, serial, nil, nil, nil, 0)
-        local diskSerial = tonumber(serial[0]) or 0
+        -- Try disk serial first
+        local diskSerial = 0
+        pcall(function()
+            local serial = ffi.new("uint32_t[1]")
+            local ok = ffi.C.GetVolumeInformationA("C:\\", nil, 0, serial, nil, nil, nil, 0)
+            if ok ~= 0 then diskSerial = tonumber(serial[0]) or 0 end
+        end)
 
-        -- Process ID seed (constant per machine via volume)
+        -- Fallback: try computer name if disk serial fails
+        if diskSerial == 0 then
+            pcall(function()
+                local buf = ffi.new("char[256]")
+                local size = ffi.new("uint32_t[1]", 256)
+                ffi.C.GetComputerNameA(buf, size)
+                local name = ffi.string(buf)
+                for i = 1, #name do
+                    diskSerial = diskSerial + name:byte(i) * (i * 31)
+                end
+            end)
+        end
+
+        if diskSerial == 0 then return end
+
         local machineID = string.format("%08X", diskSerial)
-
-        -- Simple hash
         local hash = 0x5A3C1E7D
         for i = 1, #machineID do
             hash = bit.bxor(hash, machineID:byte(i) * 0x1000193)
