@@ -1024,16 +1024,43 @@ do
             local initiator
             pcall(function() initiator = ev:GetInt("entityid") end)
             if not initiator or initiator <= 0 then pcall(function() initiator = ev:GetInt("userid") end) end
-            local tid
+            local tid, voteType
             pcall(function()
                 local disp = ev:GetString("disp_str")
                 if type(disp) == "string" then
                     local m = disp:match(":(%d+):")
                     if m then tid = tonumber(m) end
+                    -- Try to detect vote type
+                    if disp:find("kick") then voteType = "kick"
+                    elseif disp:find("timeout") or disp:find("pause") then voteType = "timeout"
+                    elseif disp:find("surrender") then voteType = "surrender"
+                    end
                 end
             end)
-            local c, n = startMsg(pname(initiator), tid and pname(tid) or "player")
-            push(c, n, "info")
+            pcall(function()
+                if not voteType then
+                    local vt = ev:GetInt("vote_type")
+                    if vt == 0 then voteType = "kick"
+                    elseif vt == 1 then voteType = "timeout"
+                    elseif vt == 2 then voteType = "surrender"
+                    end
+                end
+            end)
+            voteType = voteType or "kick"
+            local targetName = tid and pname(tid) or "player"
+            local initName = pname(initiator)
+            local msg
+            if voteType == "kick" then
+                msg = initName .. " wants to kick " .. targetName
+            elseif voteType == "timeout" then
+                msg = initName .. " called a timeout"
+            elseif voteType == "surrender" then
+                msg = initName .. " wants to surrender"
+            else
+                msg = initName .. " started a vote (" .. voteType .. ")"
+            end
+            local c = pfx() .. msg
+            push(c, msg, "info")
         end
     end
 end
