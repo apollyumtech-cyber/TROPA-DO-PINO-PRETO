@@ -361,6 +361,9 @@ do
         if path == "" then return end
         vol = (tonumber(vol) or 100) / 100
         if vol <= 0 then return end
+        -- Try to play immediately first, queue as fallback
+        pcall(function() client.SetConVar("snd_toolvolume", vol, true) end)
+        pcall(function() client.Command("play sounds\\" .. path, true) end)
         _sndQueue[#_sndQueue + 1] = { path = path, vol = vol }
     end
 
