@@ -2031,8 +2031,3 @@ end)
 
 M:Build({ w = 950, h = 620, x = 200, y = 100 })
 
--- Sound flush via separate Draw (proven to work)
-callbacks.Register("Draw", "TPP_Sound", function()
-    pcall(HS.flushSounds)
-    pcall(HS.missTick)
-end)
