@@ -1844,10 +1844,23 @@ function M:Build(opts)
         if open then updateMouse() end
         pcall(function() self:_drawToasts() end)
         pcall(function() self:_drawHitlog() end)
-        pcall(function() self:_drawWatermark() end)
+
+        -- Watermark only every 10 frames (heavy - reads memory)
+        self._wmTick = (self._wmTick or 0) + 1
+        if self._wmTick % 10 == 0 then
+            pcall(function() self:_drawWatermark() end)
+        end
 
         ALPHA = 1
-        for _, fn in ipairs(self._onframe) do pcall(fn, UI) end
+        -- OnFrame callbacks every 2 frames when menu closed
+        if open then
+            for _, fn in ipairs(self._onframe) do pcall(fn, UI) end
+        else
+            self._ofTick = (self._ofTick or 0) + 1
+            if self._ofTick % 2 == 0 then
+                for _, fn in ipairs(self._onframe) do pcall(fn, UI) end
+            end
+        end
 
         if not open and self._t < 0.005 then self._t = 0; return end
 

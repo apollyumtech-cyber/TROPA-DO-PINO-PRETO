@@ -1746,8 +1746,6 @@ do local p = tonumber(C.getOpt("vr_mode")); if p and p >= 1 and p <= 3 then vrMo
 local _frameCount = 0
 M:OnFrame(function()
     _frameCount = _frameCount + 1
-    pcall(HS.flushSounds)
-    pcall(HS.missTick)
     pcall(syncCategory)
     -- Run heavy stuff every 5 frames
     if _frameCount % 5 == 0 then
@@ -1967,9 +1965,6 @@ local _afkDir = 1
 local _afkNextSwitch = 0
 pcall(function()
     callbacks.Register("CreateMove", "TROPA DO PINO PRETO_AFK", function(cmd)
-        -- Always flush sounds every tick
-        pcall(HS.flushSounds)
-        pcall(HS.missTick)
         -- Anti-AFK
         if not afkOn:Get() then return end
         local now = 0
@@ -2035,3 +2030,9 @@ M:OnFrame(function()
 end)
 
 M:Build({ w = 950, h = 620, x = 200, y = 100 })
+
+-- Sound flush via separate Draw (proven to work)
+callbacks.Register("Draw", "TPP_Sound", function()
+    pcall(HS.flushSounds)
+    pcall(HS.missTick)
+end)
