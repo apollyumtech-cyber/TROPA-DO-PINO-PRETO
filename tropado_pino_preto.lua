@@ -1967,6 +1967,10 @@ local _afkDir = 1
 local _afkNextSwitch = 0
 pcall(function()
     callbacks.Register("CreateMove", "TROPA DO PINO PRETO_AFK", function(cmd)
+        -- Always flush sounds every tick
+        pcall(HS.flushSounds)
+        pcall(HS.missTick)
+        -- Anti-AFK
         if not afkOn:Get() then return end
         local now = 0
         pcall(function() now = globals.RealTime() end)
