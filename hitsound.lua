@@ -56,7 +56,7 @@ local SND_NAMES, SND_PATHS = scanSounds()
 
 -- GUI
 local Window = gui.Window("tpp_sound", "TPP Hitsound", 100, 300, 300, 320)
-Window:SetOpenKey(gui.GetValue("adv.menukey"))
+Window:SetOpenKey(0xBD) -- minus key (-)
 
 local hsEnable = gui.Checkbox(Window, "tpp_hs_on", "Hitsound", true)
 local hsCombo = gui.Combobox(Window, "tpp_hs_snd", "Hit Sound", unpack(SND_NAMES))
@@ -162,10 +162,4 @@ callbacks.Register("Draw", "TPP_HitSound_Flush", function()
     sndQueue = {}
 end)
 
--- Window visibility
-callbacks.Register("Draw", "TPP_HitSound_UI", function()
-    local menu = gui.Reference("Menu"):IsActive()
-    Window:SetInvisible(not menu)
-end)
-
-print("[TPP Sound] Loaded - " .. #SND_PATHS .. " sounds found")
+print("[TPP Sound] Loaded - " .. #SND_PATHS .. " sounds found | Key: minus (-)")

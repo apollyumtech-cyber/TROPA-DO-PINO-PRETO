@@ -1820,6 +1820,15 @@ function M:Build(opts)
     callbacks.Register("Draw", function()
         local open = true
         if menuRef then pcall(function() open = menuRef:IsActive() end) end
+        -- Custom keybind toggle (= key, 0xBB)
+        if not self._kbLast then self._kbLast = false end
+        local kbDown = false
+        pcall(function() kbDown = input.IsButtonPressed(0xBB) end)
+        if kbDown and not self._kbLast then
+            self._kbForce = not (self._kbForce or false)
+        end
+        self._kbLast = kbDown
+        if self._kbForce then open = true end
         self._open = open
         if not open then self._focus = nil; self._inputDrag = nil end
 
