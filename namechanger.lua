@@ -1,11 +1,20 @@
 -- TROPA DO PINO PRETO - Name Changer Solo
--- Exact replica of the NC block from the main script
+-- Exact copy of NC block from femboytap original
 
 local ffi = rawget(_G, "ffi")
-if not ffi then print("[TPP NC] no ffi"); return end
 
 local function r_ptr(a) return tonumber(ffi.cast("uint64_t*", a)[0]) end
 local function valid(p) return p ~= nil and p > 0x10000 and p < 0x7FFFFFFFFFFF end
+
+-- Declare FFI functions (same as VM block does in main script)
+pcall(function() ffi.cdef [[
+    void* VirtualAlloc(void*, size_t, uint32_t, uint32_t);
+    int   VirtualProtect(void*, size_t, uint32_t, uint32_t*);
+    void* GetCurrentProcess(void);
+    int   FlushInstructionCache(void*, void*, size_t);
+    void* GetModuleHandleA(const char*);
+    void* GetProcAddress(void*, const char*);
+]] end)
 
 local NC = { ok = false, installed = false, enabled = false }
 do
@@ -27,10 +36,10 @@ do
         for i = 1, 0x8000 do
             local lo = b - i * gran
             if lo > 0x10000 then
-                local p = f.C.VirtualAlloc(ffi.cast("void*", lo), 64, 0x3000, 0x40)
+                local p = f.C.VirtualAlloc(f.cast("void*", lo), 64, 0x3000, 0x40)
                 if p ~= nil then return p end
             end
-            local p2 = f.C.VirtualAlloc(ffi.cast("void*", b + i * gran), 64, 0x3000, 0x40)
+            local p2 = f.C.VirtualAlloc(f.cast("void*", b + i * gran), 64, 0x3000, 0x40)
             if p2 ~= nil then return p2 end
         end
         return nil
@@ -64,20 +73,12 @@ do
     end
 
     local function install()
-        if type(f) ~= "table" then print("[TPP NC] no ffi"); return false end
-        pcall(function() f.cdef[[
-            void* VirtualAlloc(void*, size_t, uint32_t, uint32_t);
-            int   VirtualProtect(void*, size_t, uint32_t, uint32_t*);
-            void* GetCurrentProcess(void);
-            int   FlushInstructionCache(void*, void*, size_t);
-            void* GetModuleHandleA(const char*);
-            void* GetProcAddress(void*, const char*);
-        ]] end)
+        if type(f) ~= "table" then print("[TPP NC] namechanger: no ffi"); return false end
         local a = mem.FindPattern(DLL, SIG_SETINFO)
-        if not a or a == 0 then print("[TPP NC] sig not found"); return false end
+        if not a or a == 0 then print("[TPP NC] namechanger: sig not found"); return false end
         T = a
         local b0 = f.cast("uint8_t*", T)
-        local p = alloc_near(T); if p == nil then print("[TPP NC] alloc failed"); return false end
+        local p = alloc_near(T); if p == nil then print("[TPP NC] namechanger: alloc failed"); return false end
         local TR = tonumber(f.cast("uintptr_t", p))
 
         local saved = {}
@@ -90,7 +91,7 @@ do
 
         local old = f.new("uint32_t[1]")
         if f.C.VirtualProtect(f.cast("void*", T), STEAL, 0x40, old) == 0 then
-            print("[TPP NC] protect failed"); return false
+            print("[TPP NC] namechanger: protect failed"); return false
         end
         w_u8(T, 0xFF); w_u8(T + 1, 0x25); w_i32(T + 2, 0)
         le64(T + 6, tonumber(f.cast("uintptr_t", keepCb)))
@@ -155,19 +156,16 @@ do
     local okI = false
     pcall(function() okI = install() end)
     NC.ok = okI
-    if okI then print("[TPP NC] hooked SetInfo @ " .. string.format("%X", T))
-    else        print("[TPP NC] install failed") end
+    if okI then print("[TPP NC] namechanger: hooked SetInfo @ " .. string.format("%X", T))
+    else        print("[TPP NC] namechanger: install failed") end
 end
 pcall(function() callbacks.Register("Unload", function() pcall(NC.uninstall) end) end)
 
--- GUI
-local Window = gui.Window("tpp_nc", "TPP Name Changer", 420, 100, 300, 300)
+-- Simple GUI
+local Window = gui.Window("tpp_nc", "TPP Name Changer", 420, 100, 300, 260)
 local ncEnable = gui.Checkbox(Window, "tpp_nc_on", "Enabled", false)
-local ncMode = gui.Combobox(Window, "tpp_nc_mode", "Mode", "Full name", "Clantag")
 local ncText = gui.Editbox(Window, "tpp_nc_text", "Name")
-local ncSpeed = gui.Slider(Window, "tpp_nc_speed", "Speed ms", 400, 100, 1500, 10)
 
--- Logic
 local lastApplied = ""
 local lastTrigger = 0
 local _menuRef = gui.Reference("Menu")
