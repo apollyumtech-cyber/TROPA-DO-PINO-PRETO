@@ -245,7 +245,9 @@ do
     end
 
     local okI = false
-    pcall(function() okI = install() end)
+    print("[TPP NC] about to call install()...")
+    local installOk, installErr = pcall(function() okI = install() end)
+    if not installOk then print("[TPP NC] install pcall error: " .. tostring(installErr)) end
     NC.ok = okI
     if okI then print("[TPP NC] hooked @ " .. string.format("%X", T))
     else print("[TPP NC] hook failed") end
