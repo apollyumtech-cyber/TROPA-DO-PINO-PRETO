@@ -230,7 +230,12 @@ end
 
 -- Main logic
 local lastApplied = ""
-local clock = os.clock
+local function getClock()
+    local t = 0
+    pcall(function() t = globals.RealTime() end)
+    if t == 0 then pcall(function() t = globals.CurTime() end) end
+    return t
+end
 
 callbacks.Register("Draw", "TPP_NC_Logic", function()
     local menu = gui.Reference("Menu"):IsActive()
@@ -246,7 +251,7 @@ callbacks.Register("Draw", "TPP_NC_Logic", function()
     local mode = ncMode:GetValue() -- 0=fullname, 1=clantag
     local seq = getSeq()
     local speed = ncSpeed:GetValue() / 400
-    local t = clock()
+    local t = getClock()
     local name = frameAt(seq, t, speed)
 
     if name ~= lastApplied then
