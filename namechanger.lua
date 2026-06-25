@@ -74,6 +74,8 @@ do
 
     local function install()
         if type(f) ~= "table" then print("[TPP NC] namechanger: no ffi"); return false end
+        -- Warm up mem.FindPattern (same as main script does with VM block)
+        pcall(function() mem.FindPattern("client.dll", "E8 ?? ?? ?? ?? 48 8B CB E8 ?? ?? ?? ?? 84 C0 74 11 F3 0F 10 45 B0") end)
         local a = mem.FindPattern(DLL, SIG_SETINFO)
         if not a or a == 0 then print("[TPP NC] namechanger: sig not found"); return false end
         T = a
