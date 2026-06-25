@@ -70,6 +70,22 @@ local STEAL = 16
 local NAME_OFF, KEY_OFF, VAL_OFF = 0x440, 0x8, 0x10
 local hookInstalled = false
 local ncEnabled = false
+local _hookRetries = 0
+
+local function tryInstallHook()
+    if hookInstalled then return true end
+    if _hookRetries > 20 then return false end
+    _hookRetries = _hookRetries + 1
+    local ok = false
+    pcall(function() ok = installHook() end)
+    return ok
+end
+
+-- Try hook with delay via Draw callback
+callbacks.Register("Draw", "TPP_NC_HookRetry", function()
+    if hookInstalled then return end
+    tryInstallHook()
+end)
 
 local function installHook()
     pcall(function() ffi.cdef[[
@@ -157,7 +173,8 @@ local function installHook()
     return true
 end
 
-pcall(installHook)
+-- Hook will be installed via retry in Draw callback
+print("[TPP NC] waiting for engine2.dll...")
 
 -- Unload
 pcall(function()
