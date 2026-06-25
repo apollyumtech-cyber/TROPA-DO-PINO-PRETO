@@ -252,6 +252,7 @@ callbacks.Register("Draw", "TPP_NC_Draw", function()
 
     if (t - lastTrigger) >= 0.25 then
         lastTrigger = t
+        NC._flags = nil  -- Force re-patch flags every time (handles map change/reconnect)
         pcall(NC.fixFlags)
         pcall(function() client.Command('setinfo name "' .. name:gsub('"', '') .. '"', true) end)
     end
