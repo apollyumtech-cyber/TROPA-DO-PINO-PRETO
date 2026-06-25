@@ -256,17 +256,22 @@ callbacks.Register("Draw", "TPP_NC_Logic", function()
 
     if name ~= lastApplied then
         lastApplied = name
+        NC.setName(name)
         if mode == 0 then
-            NC.setName(name)
-            -- Force name update
-            pcall(function() client.SetConVar("name", name, true) end)
+            -- Force engine to send name update (triggers our hook)
+            pcall(function() client.Command("name " .. name, true) end)
+            pcall(function() client.Command("setinfo name " .. name, true) end)
         else
-            pcall(function()
-                client.SetConVar("cl_clanid", 0, true)
-                client.Command("cl_clanid 0", true)
-            end)
+            -- Clantag mode
+            pcall(function() client.Command("cl_clanid 0", true) end)
         end
     end
 end)
 
 print("[TPP NC] Name Changer loaded" .. (NC.ok and " - hook OK" or " - hook FAILED"))
+
+-- Window visibility
+local _ncMenuRef = gui.Reference("Menu")
+callbacks.Register("Draw", "TPP_NC_UI", function()
+    pcall(function() Window:SetInvisible(not _ncMenuRef:IsActive()) end)
+end)
