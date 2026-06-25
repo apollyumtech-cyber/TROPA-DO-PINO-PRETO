@@ -63,11 +63,18 @@ do
     end
 end
 
--- Step 4.5: Trigger mem.FindPattern on client.dll first (same as VM block does)
--- This may be required to initialize Aimware's pattern scanner for other modules
+-- Step 4.5: Ensure engine2.dll is mapped (like RG block does with other DLLs)
 pcall(function()
-    local SIG_VM = "E8 ?? ?? ?? ?? 48 8B CB E8 ?? ?? ?? ?? 84 C0 74 11 F3 0F 10 45 B0"
-    mem.FindPattern("client.dll", SIG_VM)
+    local h = ffi.C.GetModuleHandleA("engine2.dll")
+    if h ~= nil then
+        print("[TPP NC] engine2.dll base: " .. string.format("%X", tonumber(ffi.cast("uintptr_t", h))))
+    else
+        print("[TPP NC] engine2.dll NOT FOUND via GetModuleHandleA")
+    end
+end)
+pcall(function()
+    local b = mem.GetModuleBase("engine2.dll")
+    print("[TPP NC] engine2.dll mem base: " .. tostring(b and string.format("%X", b) or "nil"))
 end)
 
 -- Step 5: NC block (exact copy from original)
