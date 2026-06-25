@@ -1,5 +1,5 @@
--- TROPA DO PINO PRETO - Name Changer Standalone
--- Includes all dependencies in correct order
+-- TROPA DO PINO PRETO - Name Changer (Pure Standalone)
+-- No external dependencies. Self-contained.
 
 local ffi = rawget(_G, "ffi")
 if not ffi then print("[TPP NC] no ffi"); return end
@@ -8,81 +8,20 @@ local floor = math.floor
 local function r_ptr(a) return tonumber(ffi.cast("uint64_t*", a)[0]) end
 local function valid(p) return p ~= nil and p > 0x10000 and p < 0x7FFFFFFFFFFF end
 
--- Step 1: ffi.cdef (same as VM block declares)
 pcall(function() ffi.cdef [[
     void* VirtualAlloc(void*, size_t, uint32_t, uint32_t);
     int   VirtualProtect(void*, size_t, uint32_t, uint32_t*);
     void* GetCurrentProcess(void);
     int   FlushInstructionCache(void*, void*, size_t);
+    void* GetModuleHandleA(const char*);
+    void* GetProcAddress(void*, const char*);
 ]] end)
 
--- Step 2: ffi.cdef (same as HS block declares)
-pcall(function() ffi.cdef [[ void* GetModuleHandleA(const char*); void* GetProcAddress(void*, const char*); ]] end)
-
--- Step 3: Load changer (provides C.offsets needed by localInfo)
-local BASE = "https://raw.githubusercontent.com/apollyumtech-cyber/TROPA-DO-PINO-PRETO/main/"
-local function fetch(url)
-    local src
-    pcall(function() src = http.Get(url .. "?nocache=" .. tostring({}):gsub("%W", "")) end)
-    if type(src) ~= "string" or #src <= 500 then pcall(function() src = http.Get(url) end) end
-    return src
-end
-
-local C
-do
-    local src = fetch(BASE .. "tropado_pino_preto_changer.lua")
-    if src then
-        local chunk = loadstring(src, "=changer.lua")
-        if chunk then
-            local ok, mod = pcall(chunk)
-            if ok and type(mod) == "table" then C = mod end
-        end
-    end
-end
-if not C then print("[TPP NC] changer failed"); return end
-print("[TPP NC] changer OK, offsets: entlist=" .. tostring(C.offsets and C.offsets.dwEntityList) .. " ctrl=" .. tostring(C.offsets and C.offsets.dwLocalPlayerController))
-
--- Step 4: Minimal HS.localInfo (detects in-game state)
-local HS = {}
-do
-    local bit_ = rawget(_G, "bit")
-    local DLL = "client.dll"
-    local off = {}
-    off.dwEntityList = C.offsets and C.offsets.dwEntityList
-    off.dwLocalPlayerController = C.offsets and C.offsets.dwLocalPlayerController
-
-    local band, rshift = (bit_ or {}).band, (bit_ or {}).rshift
-
-    function HS.localInfo()
-        if not (type(ffi) == "table" and band and off.dwLocalPlayerController and off.dwEntityList) then return nil, nil end
-        local base = mem.GetModuleBase(DLL); if not base then return nil, nil end
-        local lctrl = r_ptr(base + off.dwLocalPlayerController)
-        local elist = r_ptr(base + off.dwEntityList)
-        if valid(lctrl) and valid(elist) then return lctrl, elist end
-        return nil, nil
-    end
-end
-
--- Step 4.5: Ensure engine2.dll is mapped (like RG block does with other DLLs)
-pcall(function()
-    local h = ffi.C.GetModuleHandleA("engine2.dll")
-    if h ~= nil then
-        print("[TPP NC] engine2.dll base: " .. string.format("%X", tonumber(ffi.cast("uintptr_t", h))))
-    else
-        print("[TPP NC] engine2.dll NOT FOUND via GetModuleHandleA")
-    end
-end)
-pcall(function()
-    local b = mem.GetModuleBase("engine2.dll")
-    print("[TPP NC] engine2.dll mem base: " .. tostring(b and string.format("%X", b) or "nil"))
-end)
-
--- Step 5: NC block (exact copy from original)
 local NC = { ok = false, installed = false, enabled = false }
 do
     local f = ffi
     local DLL = "engine2.dll"
-    local SIG_SETINFO = "40 55 41 57 48 8D 6C 24 ?? 48 81 EC ?? ?? ?? ?? 45 33 FF"
+    local SIG = { 0x40, 0x55, 0x41, 0x57, 0x48, 0x8D, 0x6C, 0x24, nil, 0x48, 0x81, 0xEC, nil, nil, nil, nil, 0x45, 0x33, 0xFF }
     local STEAL = 16
     local NAME_OFF, KEY_OFF, VAL_OFF = 0x440, 0x8, 0x10
 
@@ -103,6 +42,27 @@ do
             end
             local p2 = f.C.VirtualAlloc(f.cast("void*", b + i * gran), 64, 0x3000, 0x40)
             if p2 ~= nil then return p2 end
+        end
+        return nil
+    end
+
+    local function scanSig()
+        local h = f.C.GetModuleHandleA(DLL)
+        if h == nil then return nil end
+        local base = tonumber(f.cast("uintptr_t", h))
+        if not base or base == 0 then return nil end
+        local e_lfanew = f.cast("int32_t*", base + 0x3C)[0]
+        local sizeOfImage = f.cast("uint32_t*", base + e_lfanew + 0x50)[0]
+        for i = 0, sizeOfImage - #SIG do
+            local match = true
+            for j = 1, #SIG do
+                if SIG[j] ~= nil then
+                    if f.cast("uint8_t*", base + i)[j-1] ~= SIG[j] then
+                        match = false; break
+                    end
+                end
+            end
+            if match then return base + i end
         end
         return nil
     end
@@ -136,39 +96,12 @@ do
 
     local function install()
         if type(f) ~= "table" then return false end
-        -- Try mem.FindPattern first
         local a
-        pcall(function() a = mem.FindPattern(DLL, SIG_SETINFO) end)
-        print("[TPP NC] FindPattern result: " .. tostring(a) .. " type: " .. type(a or ""))
-        -- If failed, try manual scan
+        pcall(function() a = mem.FindPattern(DLL, "40 55 41 57 48 8D 6C 24 ?? 48 81 EC ?? ?? ?? ?? 45 33 FF") end)
         if not a or (type(a) == "number" and a == 0) then
-            print("[TPP NC] mem.FindPattern failed, trying manual scan...")
-            pcall(function()
-                local base = tonumber(ffi.cast("uintptr_t", ffi.C.GetModuleHandleA(DLL)))
-                if not base or base == 0 then print("[TPP NC] no base"); return end
-                local e_lfanew = ffi.cast("int32_t*", base + 0x3C)[0]
-                local sizeOfImage = ffi.cast("uint32_t*", base + e_lfanew + 0x50)[0]
-                print("[TPP NC] scanning " .. sizeOfImage .. " bytes...")
-                local pattern = { 0x40, 0x55, 0x41, 0x57, 0x48, 0x8D, 0x6C, 0x24, nil, 0x48, 0x81, 0xEC, nil, nil, nil, nil, 0x45, 0x33, 0xFF }
-                for i = 0, sizeOfImage - #pattern do
-                    local match = true
-                    for j = 1, #pattern do
-                        if pattern[j] ~= nil then
-                            if ffi.cast("uint8_t*", base + i)[j-1] ~= pattern[j] then
-                                match = false; break
-                            end
-                        end
-                    end
-                    if match then
-                        a = base + i
-                        print("[TPP NC] FOUND @ " .. string.format("%X", a))
-                        break
-                    end
-                end
-                if not a then print("[TPP NC] manual scan found nothing") end
-            end)
+            a = scanSig()
         end
-        if not a or (type(a) == "number" and a == 0) then print("[TPP NC] sig not found"); return false end
+        if not a then print("[TPP NC] sig not found"); return false end
         T = a
         local b0 = f.cast("uint8_t*", T)
         local p = alloc_near(T); if p == nil then print("[TPP NC] alloc failed"); return false end
@@ -245,40 +178,34 @@ do
     end
 
     local okI = false
-    print("[TPP NC] about to call install()...")
-    local installOk, installErr = pcall(function() okI = install() end)
-    if not installOk then print("[TPP NC] install pcall error: " .. tostring(installErr)) end
+    pcall(function() okI = install() end)
     NC.ok = okI
     if okI then print("[TPP NC] hooked @ " .. string.format("%X", T))
     else print("[TPP NC] hook failed") end
 end
 pcall(function() callbacks.Register("Unload", function() pcall(NC.uninstall) end) end)
 
--- Step 6: GUI + Logic
+-- GUI
 local Window = gui.Window("tpp_nc", "TPP Name Changer", 420, 100, 300, 280)
 local ncEnable = gui.Checkbox(Window, "tpp_nc_on", "Enabled", false)
-local ncMode = gui.Combobox(Window, "tpp_nc_mode", "Mode", "Full name", "Clantag")
 local ncSource = gui.Combobox(Window, "tpp_nc_src", "Source", "Static", "TROPA", "Aimware", "Custom")
 local ncText = gui.Editbox(Window, "tpp_nc_text", "Text")
 local ncSpeed = gui.Slider(Window, "tpp_nc_speed", "Speed", 400, 100, 1500, 10)
 
 local TROPA_SEQ = {
-    { t = "", ms = 550 },
-    { t = "$T", ms = 80 }, { t = "$TR", ms = 80 }, { t = "$TRO", ms = 80 },
-    { t = "$TROP", ms = 80 }, { t = "$TROPA", ms = 80 }, { t = "$TROPA$", ms = 2000 },
-    { t = "$TROP", ms = 60 }, { t = "$TRO", ms = 60 }, { t = "$TR", ms = 60 },
-    { t = "$T", ms = 60 }, { t = "", ms = 300 },
+    { t = "", ms = 550 }, { t = "$T", ms = 80 }, { t = "$TR", ms = 80 },
+    { t = "$TRO", ms = 80 }, { t = "$TROP", ms = 80 }, { t = "$TROPA", ms = 80 },
+    { t = "$TROPA$", ms = 2000 }, { t = "$TROP", ms = 60 }, { t = "$TRO", ms = 60 },
+    { t = "$TR", ms = 60 }, { t = "$T", ms = 60 }, { t = "", ms = 300 },
 }
 local AIM_SEQ = {
-    { t = "", ms = 450 },
-    { t = "[A]", ms = 120 }, { t = "[AI]", ms = 120 }, { t = "[AIM]", ms = 120 },
-    { t = "[AIMW]", ms = 120 }, { t = "[AIMWA]", ms = 120 }, { t = "[AIMWAR]", ms = 120 },
-    { t = "[AIMWARE]", ms = 110 }, { t = "[AIMWARE.]", ms = 120 }, { t = "[AIMWARE.N]", ms = 90 },
-    { t = "[AIMWARE.NE]", ms = 120 }, { t = "[AIMWARE.NET]", ms = 2000 },
-    { t = "[AIMWARE.NE]", ms = 120 }, { t = "[AIMWARE.N]", ms = 120 },
-    { t = "[AIMWARE.]", ms = 120 }, { t = "[AIMWARE]", ms = 120 }, { t = "[AIMWAR]", ms = 120 },
-    { t = "[AIMWA]", ms = 120 }, { t = "[AIMW]", ms = 120 }, { t = "[AIM]", ms = 120 },
-    { t = "[AI]", ms = 120 }, { t = "[A]", ms = 120 },
+    { t = "", ms = 450 }, { t = "[A]", ms = 120 }, { t = "[AI]", ms = 120 },
+    { t = "[AIM]", ms = 120 }, { t = "[AIMW]", ms = 120 }, { t = "[AIMWA]", ms = 120 },
+    { t = "[AIMWAR]", ms = 120 }, { t = "[AIMWARE]", ms = 110 }, { t = "[AIMWARE.]", ms = 120 },
+    { t = "[AIMWARE.N]", ms = 90 }, { t = "[AIMWARE.NE]", ms = 120 }, { t = "[AIMWARE.NET]", ms = 2000 },
+    { t = "[AIMWARE.NE]", ms = 120 }, { t = "[AIMWARE.N]", ms = 120 }, { t = "[AIMWARE.]", ms = 120 },
+    { t = "[AIMWARE]", ms = 120 }, { t = "[AIMWAR]", ms = 120 }, { t = "[AIMWA]", ms = 120 },
+    { t = "[AIMW]", ms = 120 }, { t = "[AIM]", ms = 120 }, { t = "[AI]", ms = 120 }, { t = "[A]", ms = 120 },
 }
 
 local function frameAt(seq, t, factor)
@@ -288,10 +215,7 @@ local function frameAt(seq, t, factor)
     if total <= 0 then return seq[1].t end
     local ms = (t * 1000) % total
     local acc = 0
-    for i = 1, n do
-        acc = acc + seq[i].ms * factor
-        if ms < acc then return seq[i].t end
-    end
+    for i = 1, n do acc = acc + seq[i].ms * factor; if ms < acc then return seq[i].t end end
     return seq[n].t
 end
 
@@ -301,7 +225,7 @@ local function getFrame(t)
     if src == 0 then return ncText:GetValue() or ""
     elseif src == 1 then return frameAt(TROPA_SEQ, t, speed)
     elseif src == 2 then return frameAt(AIM_SEQ, t, speed)
-    else return frameAt({{ t = ncText:GetValue() or "", ms = 2000 }}, t, speed)
+    else return ncText:GetValue() or ""
     end
 end
 
@@ -311,7 +235,6 @@ local _menuRef = gui.Reference("Menu")
 
 callbacks.Register("Draw", "TPP_NC_Draw", function()
     pcall(function() Window:SetInvisible(not _menuRef:IsActive()) end)
-
     if not ncEnable:GetValue() then NC.enabled = false; return end
     if not NC.ok then return end
     NC.enabled = true
@@ -334,4 +257,4 @@ callbacks.Register("Draw", "TPP_NC_Draw", function()
     end
 end)
 
-print("[TPP NC] standalone loaded" .. (NC.ok and " - READY" or " - FAILED"))
+print("[TPP NC] loaded" .. (NC.ok and " - READY" or " - FAILED"))
