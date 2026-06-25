@@ -39,7 +39,8 @@ do
         end
     end
 end
-if not C then print("[TPP NC] changer failed to load"); return end
+if not C then print("[TPP NC] changer failed"); return end
+print("[TPP NC] changer OK, offsets: entlist=" .. tostring(C.offsets and C.offsets.dwEntityList) .. " ctrl=" .. tostring(C.offsets and C.offsets.dwLocalPlayerController))
 
 -- Step 4: Minimal HS.localInfo (detects in-game state)
 local HS = {}
@@ -61,6 +62,13 @@ do
         return nil, nil
     end
 end
+
+-- Step 4.5: Trigger mem.FindPattern on client.dll first (same as VM block does)
+-- This may be required to initialize Aimware's pattern scanner for other modules
+pcall(function()
+    local SIG_VM = "E8 ?? ?? ?? ?? 48 8B CB E8 ?? ?? ?? ?? 84 C0 74 11 F3 0F 10 45 B0"
+    mem.FindPattern("client.dll", SIG_VM)
+end)
 
 -- Step 5: NC block (exact copy from original)
 local NC = { ok = false, installed = false, enabled = false }
