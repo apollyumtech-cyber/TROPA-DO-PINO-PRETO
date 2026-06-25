@@ -1747,24 +1747,20 @@ local _frameCount = 0
 M:OnFrame(function()
     _frameCount = _frameCount + 1
     pcall(syncCategory)
-    -- Run skin stuff only if needed (every 5 frames)
-    if _frameCount % 5 == 0 then
-        if cbAuto and cbAuto:Get() then pcall(autoFollow) end
-        pcall(syncSkins)
-        pcall(autoApply)
-        pcall(syncVm)
-        pcall(HS.sync)
-    end
-    -- Run slow stuff every 60 frames (very light)
-    if _frameCount % 60 == 0 then
-        pcall(persistOpts)
-        pcall(syncModel)
-        pcall(hlSync)
-        if wmOn and wmOn:Get() then pcall(wmSync) end
-        pcall(rgSync)
-        pcall(ncSync)
-        pcall(vrSync)
-    end
+    pcall(autoFollow)
+    pcall(syncSkins)
+    pcall(autoApply)
+    pcall(persistOpts)
+    pcall(syncModel)
+    pcall(syncVm)
+    pcall(HS.missTick)
+    pcall(HS.sync)
+    pcall(HS.flushSounds)
+    pcall(hlSync)
+    pcall(wmSync)
+    pcall(rgSync)
+    pcall(ncSync)
+    pcall(vrSync)
 end)
 
 -- Theme tab
