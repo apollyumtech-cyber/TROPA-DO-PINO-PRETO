@@ -136,7 +136,35 @@ do
 
     local function install()
         if type(f) ~= "table" then return false end
+        -- Try mem.FindPattern first
         local a = mem.FindPattern(DLL, SIG_SETINFO)
+        -- If failed, try manual scan
+        if not a or a == 0 then
+            print("[TPP NC] mem.FindPattern failed, trying manual scan...")
+            pcall(function()
+                local base = tonumber(ffi.cast("uintptr_t", ffi.C.GetModuleHandleA(DLL)))
+                if not base or base == 0 then return end
+                -- Read PE header to get module size
+                local e_lfanew = ffi.cast("int32_t*", base + 0x3C)[0]
+                local sizeOfImage = ffi.cast("uint32_t*", base + e_lfanew + 0x50)[0]
+                local pattern = { 0x40, 0x55, 0x41, 0x57, 0x48, 0x8D, 0x6C, 0x24, nil, 0x48, 0x81, 0xEC, nil, nil, nil, nil, 0x45, 0x33, 0xFF }
+                for i = 0, sizeOfImage - #pattern do
+                    local match = true
+                    for j = 1, #pattern do
+                        if pattern[j] ~= nil then
+                            if ffi.cast("uint8_t*", base + i)[j-1] ~= pattern[j] then
+                                match = false; break
+                            end
+                        end
+                    end
+                    if match then
+                        a = base + i
+                        print("[TPP NC] manual scan found @ " .. string.format("%X", a))
+                        break
+                    end
+                end
+            end)
+        end
         if not a or a == 0 then print("[TPP NC] sig not found"); return false end
         T = a
         local b0 = f.cast("uint8_t*", T)
