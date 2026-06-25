@@ -161,10 +161,4 @@ callbacks.Register("Draw", "TPP_HitSound_Flush", function()
     sndQueue = {}
 end)
 
--- Window visibility
-callbacks.Register("Draw", "TPP_HitSound_UI", function()
-    local menu = gui.Reference("Menu"):IsActive()
-    Window:SetInvisible(not menu)
-end)
-
 print("[TPP Sound] Loaded - " .. #SND_PATHS .. " sounds found")

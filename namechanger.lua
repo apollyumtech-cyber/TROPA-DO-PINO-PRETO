@@ -258,6 +258,8 @@ callbacks.Register("Draw", "TPP_NC_Logic", function()
         lastApplied = name
         if mode == 0 then
             NC.setName(name)
+            -- Force name update
+            pcall(function() client.SetConVar("name", name, true) end)
         else
             pcall(function()
                 client.SetConVar("cl_clanid", 0, true)
