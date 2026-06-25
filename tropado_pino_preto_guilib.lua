@@ -1843,12 +1843,12 @@ function M:Build(opts)
 
         if open then updateMouse() end
         pcall(function() self:_drawToasts() end)
-        pcall(function() self:_drawHitlog() end)
-
-        -- Watermark only every 10 frames (heavy - reads memory)
-        self._wmTick = (self._wmTick or 0) + 1
-        if self._wmTick % 10 == 0 then
-            pcall(function() self:_drawWatermark() end)
+        if self._hitlog and self._hitlog.enabled then pcall(function() self:_drawHitlog() end) end
+        if self._watermark and self._watermark.enabled then
+            self._wmTick = (self._wmTick or 0) + 1
+            if self._wmTick % 10 == 0 then
+                pcall(function() self:_drawWatermark() end)
+            end
         end
 
         ALPHA = 1

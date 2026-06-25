@@ -1747,20 +1747,20 @@ local _frameCount = 0
 M:OnFrame(function()
     _frameCount = _frameCount + 1
     pcall(syncCategory)
-    -- Run heavy stuff every 5 frames
+    -- Run skin stuff only if needed (every 5 frames)
     if _frameCount % 5 == 0 then
-        pcall(autoFollow)
+        if cbAuto and cbAuto:Get() then pcall(autoFollow) end
         pcall(syncSkins)
         pcall(autoApply)
         pcall(syncVm)
         pcall(HS.sync)
     end
-    -- Run slow stuff every 30 frames
-    if _frameCount % 30 == 0 then
+    -- Run slow stuff every 60 frames (very light)
+    if _frameCount % 60 == 0 then
         pcall(persistOpts)
         pcall(syncModel)
         pcall(hlSync)
-        pcall(wmSync)
+        if wmOn and wmOn:Get() then pcall(wmSync) end
         pcall(rgSync)
         pcall(ncSync)
         pcall(vrSync)
